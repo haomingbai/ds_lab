@@ -1,0 +1,82 @@
+\documentclass{ctexart}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{myorange}{rgb}{0.9,0.4,0}
+\definecolor{mybackground}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{myCstyle}{
+  backgroundcolor=\color{mybackground},
+  commentstyle=\color{mygreen},
+  keywordstyle=\color{blue},
+  numberstyle=\tiny\color{mygray},
+  stringstyle=\color{myorange},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C
+}
+
+\lstdefinestyle{myCPPstyle}{
+  backgroundcolor=\color{mybackground},
+  commentstyle=\color{mygreen},
+  keywordstyle=\color{blue},
+  numberstyle=\tiny\color{mygray},
+  stringstyle=\color{myorange},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C++
+}
+
+\title{Data Structure, Homework 2}
+\author{白昊明, 学号: 2023301350, 班级: 14012303}
+
+\begin{document}
+\maketitle
+\section*{Problem 1}
+在有序链表中插入一个数字, 需要找到数字所在的位置并完成插入, 时间复杂度为$O(n)$, 空间复杂度为$O(1)$, 不占用额外空间. 代码如下:
+\lstinputlisting[style=myCppstyle, caption = {Problem 1: solution}]{./a.cpp}
+
+\section*{Problem 2}
+两个有序集合, 进行合并, 合并之前需要预先分配足够的空间, 其大小等于前后两个数组的长度之和. 时间复杂度为$O(m+n)$, 空间复杂度为$O(m+n)$, 代码如下:
+\lstinputlisting[style=myCppstyle, caption = {Problem 2: solution}]{./b.cpp}
+
+\section*{Problem 3}
+对于一个整数的单链表, 去除其中值为x的某个元素. 时间复杂度为$O(n)$, 空间复杂度为$O(1)$, 代码如下:
+\lstinputlisting[style=myCstyle, caption = {Problem 3: solution}]{./c.c}
+\textbf{Note: }本次代码中应用了侵入式链表.
+
+\section*{Problem 4}
+对于两个整数的单链表, 进行减法操作, 即去除链表$A$中不在$A, B$共同部分的元素. 本次计算中, 排序部分采用归并排序, 考虑到链表操作的便利性, 空间复杂度为$O(1)$, 时间复杂度为$O(n\log n)$; 然后从两个链表中查找相同元素, 时间复杂度为$O(n)$, 空间复杂度$O(n)$; 最后使用链表$A$减去二者的交集, 时间复杂度为$O(n)$, 空间复杂度为$O(n)$, 故总的时间复杂度为$O(n\log n)$, 空间复杂度为$O(n)$, 代码如下:
+\lstinputlisting[style=myCstyle, caption = {Problem 4: solution}]{./d.c}
+\textbf{Note: }本次代码中应用了侵入式链表.
+
+\section*{Problem 5}
+删除有序双向链表中的重复节点, 时间复杂度为$O(n)$, 空间复杂度为$O(1)$, 本次双链表的处理直接使用了STL中的list, 代码如下:
+\lstinputlisting[style=myCppstyle, caption = {Problem 5: solution}]{./e.cpp}
+
+\section*{Problem 6}
+给定一个循环但是损坏的双链表, 其中所有节点的prev指针均被置为NULL, 需要将其恢复. 本次计算时间复杂度为$O(n)$, 空间复杂度为$O(1)$, 代码如下:
+\lstinputlisting[style=myCstyle, caption = {Problem 6: solution}]{./f.c}
+
+\end{document}
