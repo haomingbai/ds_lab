@@ -5,6 +5,65 @@
 #include <stdlib.h>
 #include <string.h>
 
+// A STL like sequence stack structure.
+
+#define STACK(Type) stack_##Type
+
+#define GEN_STACK_STRUCT(Type)  \
+  typedef struct stack_##Type { \
+    Type *head;                 \
+    size_t len;                 \
+    size_t capacity;            \
+  } stack_##Type
+
+#define INIT_STACK(Type, stackPtr)                     \
+  do {                                                 \
+    (stackPtr)->head = (Type *)(malloc(sizeof(Type))); \
+    (stackPtr)->capacity = 1;                          \
+    (stackPtr)->len = 0;                               \
+  } while (0)
+
+#define STACK_PUSH(Type, stackPtr, newElem)                                 \
+  do {                                                                      \
+    if ((stackPtr)->len == (stackPtr)->capacity) {                          \
+      size_t newCapacity = 2 * ((stackPtr)->capacity) > (stackPtr)->len + 1 \
+                               ? (2 * ((stackPtr)->capacity))               \
+                               : ((stackPtr)->len + 1);                     \
+      (stackPtr)->capacity = newCapacity;                                   \
+      (stackPtr)->head = (Type *)(realloc((void *)((stackPtr)->head),       \
+                                          sizeof(Type) * (newCapacity)));   \
+    }                                                                       \
+    (stackPtr)->head[((stackPtr)->len)] = newElem;                          \
+    ((stackPtr)->len)++;                                                    \
+  } while (0)
+
+#define STACK_TOP(stackPtr) ((stackPtr)->head[((stackPtr)->len) - 1])
+
+#define STACK_POP(stackPtr) \
+  do {                      \
+    if ((stackPtr)->len) {  \
+      ((stackPtr)->len)--;  \
+    }                       \
+  } while (0)
+
+#define STACK_SHRINK(Type, stackPtr)                                \
+  do {                                                              \
+    if (((stackPtr)->capacity) > ((stackPtr)->len)) {               \
+      (stackPtr)->capacity = (stackPtr)->len;                       \
+      (stackPtr)->head =                                            \
+          (Type *)(realloc(sizeof(Type) * ((stackPtr)->capacity))); \
+    }                                                               \
+  } while (0)
+
+#define IS_STACK_EMPTY(stackPtr) (!((stackPtr)->len))
+
+#define RELEASE_STACK(stackPtr) \
+  do {                          \
+    free((stackPtr)->head);     \
+    (stackPtr)->len = 0;        \
+    (stackPtr)->capacity = 0;   \
+  } while (0)
+
 // Intrusive list data structure
 
 /**
@@ -62,14 +121,14 @@
  * element.
  */
 #define destroyList(listPtr, type, member)                            \
-  {                                                                   \
+  do {                                                                \
     while ((listPtr)->head->next != (listPtr)->tail) {                \
       removeAndRelease(listPtr, (listPtr)->head->next, type, member); \
     }                                                                 \
     (listPtr)->length = 0;                                            \
     free((listPtr)->head);                                            \
     free((listPtr)->tail);                                            \
-  }
+  } while (0)
 
 /**
  * @file 02-pi.c
@@ -240,59 +299,43 @@ size_t getLength(DoubleLinkedList *list) {
   return size;
 }
 
-// Specific data structure
+GEN_STACK_STRUCT(char);
 
-typedef struct IntNode {
-  int dat;
+typedef struct CharNode {
+  char dat;
   IntrusiveNode node;
-} IntNode;
-
-typedef DoubleLinkedList LinkedStack;
-
-void initStack(LinkedStack *st) { initList(st); }
-
-void pushIntToStack(LinkedStack *st, int val) {
-  IntrusiveNode *newNode = makeNode(IntNode, node);
-  containerOf(newNode, IntNode, node)->dat = val;
-  insertInFrontOf(st, st->tail, newNode);
-}
-
-void pushToStack(LinkedStack *st, IntrusiveNode *node) {
-  insertInFrontOf(st, st->tail, node);
-}
-
-size_t getStackSize(LinkedStack *st) { return st->length; }
-
-IntrusiveNode *getTopNode(LinkedStack *st) { return st->tail->prev; }
-
-IntrusiveNode *popFromStack(LinkedStack *st) {
-  return removeNode(st, st->tail->prev);
-}
-
-void popIntFromStack(LinkedStack *st) {
-  removeAndRelease(st, st->tail->prev, IntNode, node);
-}
-
-void removeKthIntFromStack(LinkedStack *st, size_t k) {
-  LinkedStack tmpStack;
-  initStack(&tmpStack);
-  for (size_t i = 1; i < k; i++) {
-    IntrusiveNode *tmpNode = popFromStack(st);
-    pushToStack(&tmpStack, tmpNode);
-  }
-  popIntFromStack(st);
-  for (size_t i = 1; i < k; i++) {
-    IntrusiveNode *tmpNode = popFromStack(&tmpStack);
-    pushToStack(st, tmpNode);
-  }
-  destroyList(st, IntNode, node);
-}
+} CharNode;
 
 int main() {
-  LinkedStack st;
-  initStack(&st);
-  for (size_t i = 0; i < 100; i++) {
-    pushIntToStack(&st, i);
+  DoubleLinkedList list;
+  initList(&list);
+  char ch;
+  while ((ch = getchar()) != '\n') {
+    IntrusiveNode *newNode = makeNode(CharNode, node);
+    containerOf(newNode, CharNode, node)->dat = ch;
+    insertInFrontOf(&list, list.tail, newNode);
   }
-  removeKthIntFromStack(&st, 10);
+
+  STACK(char) stack;
+  INIT_STACK(char, &stack);
+
+  while (list.length) {
+    char val = containerOf(list.head->next, CharNode, node)->dat;
+    STACK_PUSH(char, &stack, val);
+    removeAndRelease(&list, list.head->next, CharNode, node);
+  }
+
+  while (!IS_STACK_EMPTY(&stack)) {
+    char val = STACK_TOP(&stack);
+    STACK_POP(&stack);
+    IntrusiveNode *newNode = makeNode(CharNode, node);
+    containerOf(newNode, CharNode, node)->dat = val;
+    insertInFrontOf(&list, list.tail, newNode);
+  }
+
+  IntrusiveNode *node = list.head->next;
+  while (node != list.tail) {
+    putchar(containerOf(node, CharNode, node)->dat);
+    node = node->next;
+  }
 }

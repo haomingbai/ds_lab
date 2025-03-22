@@ -65,14 +65,14 @@
  * element.
  */
 #define destroyList(listPtr, type, member)                            \
-  {                                                                   \
+  do {                                                                \
     while ((listPtr)->head->next != (listPtr)->tail) {                \
       removeAndRelease(listPtr, (listPtr)->head->next, type, member); \
     }                                                                 \
     (listPtr)->length = 0;                                            \
     free((listPtr)->head);                                            \
     free((listPtr)->tail);                                            \
-  }
+  } while (0)
 
 /**
  * @file 02-pi.c

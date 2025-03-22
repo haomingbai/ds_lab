@@ -62,14 +62,14 @@
  * element.
  */
 #define destroyList(listPtr, type, member)                            \
-  {                                                                   \
+  do {                                                                \
     while ((listPtr)->head->next != (listPtr)->tail) {                \
       removeAndRelease(listPtr, (listPtr)->head->next, type, member); \
     }                                                                 \
     (listPtr)->length = 0;                                            \
     free((listPtr)->head);                                            \
     free((listPtr)->tail);                                            \
-  }
+  } while (0)
 
 /**
  * @file 02-pi.c
@@ -240,59 +240,8 @@ size_t getLength(DoubleLinkedList *list) {
   return size;
 }
 
-// Specific data structure
+// Specific data structure and functions
 
-typedef struct IntNode {
-  int dat;
-  IntrusiveNode node;
-} IntNode;
-
-typedef DoubleLinkedList LinkedStack;
-
-void initStack(LinkedStack *st) { initList(st); }
-
-void pushIntToStack(LinkedStack *st, int val) {
-  IntrusiveNode *newNode = makeNode(IntNode, node);
-  containerOf(newNode, IntNode, node)->dat = val;
-  insertInFrontOf(st, st->tail, newNode);
-}
-
-void pushToStack(LinkedStack *st, IntrusiveNode *node) {
-  insertInFrontOf(st, st->tail, node);
-}
-
-size_t getStackSize(LinkedStack *st) { return st->length; }
-
-IntrusiveNode *getTopNode(LinkedStack *st) { return st->tail->prev; }
-
-IntrusiveNode *popFromStack(LinkedStack *st) {
-  return removeNode(st, st->tail->prev);
-}
-
-void popIntFromStack(LinkedStack *st) {
-  removeAndRelease(st, st->tail->prev, IntNode, node);
-}
-
-void removeKthIntFromStack(LinkedStack *st, size_t k) {
-  LinkedStack tmpStack;
-  initStack(&tmpStack);
-  for (size_t i = 1; i < k; i++) {
-    IntrusiveNode *tmpNode = popFromStack(st);
-    pushToStack(&tmpStack, tmpNode);
-  }
-  popIntFromStack(st);
-  for (size_t i = 1; i < k; i++) {
-    IntrusiveNode *tmpNode = popFromStack(&tmpStack);
-    pushToStack(st, tmpNode);
-  }
-  destroyList(st, IntNode, node);
-}
-
-int main() {
-  LinkedStack st;
-  initStack(&st);
-  for (size_t i = 0; i < 100; i++) {
-    pushIntToStack(&st, i);
-  }
-  removeKthIntFromStack(&st, 10);
-}
+/**
+ * @brief Structure representing a node containing a character.
+ */
