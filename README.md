@@ -38,7 +38,7 @@ The root directory contains standalone implementations of common data structures
 ## Usage Instructions
 1. Clone the repository:
    ```sh
-   git clone https://github.com/your-repo/ds_lab.git
+   git clone http://1.13.156.137:8099/haomingbai/ds_lab.git
    ```
 2. Navigate to the directory and compile example code:
    ```sh
