@@ -1,0 +1,117 @@
+\documentclass[a4paper]{article}
+
+\usepackage{ctex}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{myorange}{rgb}{0.9,0.4,0}
+\definecolor{mybackground}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{myCstyle}{
+  backgroundcolor=\color{mybackground},
+  commentstyle=\color{mygreen},
+  keywordstyle=\color{blue},
+  numberstyle=\tiny\color{mygray},
+  stringstyle=\color{myorange},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C
+}
+
+\lstdefinestyle{myCPPstyle}{
+  backgroundcolor=\color{mybackground},
+  commentstyle=\color{mygreen},
+  keywordstyle=\color{blue},
+  numberstyle=\tiny\color{mygray},
+  stringstyle=\color{myorange},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C++
+}
+
+
+\title{数据结构-第三次作业}
+
+\author{姓名:白昊明, 学号: 2023301350}
+
+\begin{document}
+\maketitle
+\section*{题目1}
+
+\paragraph*{题目内容} 给定一个字符串str, 设计一个算法, 采用顺序栈判断strs是否为形如"序列1@序列2"的合法字符串，其中序列2是序列1的逆序，在str中恰好只有一个"@"字符.
+
+\paragraph*{思路} 创造一个自动扩容的顺序栈, 已知序列1和序列2之间存在一个'@'字符, 那么当检测到"@"字符时, 开始出栈. 在迭代到序列2部分时, 如果栈顶字符和遍历的字符相同, 则遍历下一个字符, 如果不同, 返回否. 当遍历结束时, 栈未空, 则返回否, 栈空时, 未达到字符串尾部, 返回否.
+
+\lstinputlisting[style=myCstyle, caption = {Problem 1: solution}]{./a.c}
+
+\section*{题目2}
+
+\paragraph*{题目内容} 假设有一个链栈st, 设计一个算法, 出栈从栈顶开始的第$k$个结点.
+
+\paragraph*{思路} 想要移除st的第$k$个节点而不影响其余节点, 可以创建一个新的栈, 可以从st中先出前$k-1$个节点, 并且每次出栈一个节点, 就将这个节点中压入新栈. 然后移除第$k$个节点. 完成之后, 从新的栈中出栈, 并且将出栈节点压入st.
+
+\lstinputlisting[style=myCstyle, caption={Problem 2: solution}]{./b.c}
+
+\section*{题目3}
+
+\paragraph*{题目内容} 设计一个算法, 利用顺序栈将一个十进制正整数$d$转换为$r, (2\leq r \leq 16)$ 进制的数.
+
+\paragraph*{思路} 将十进制数字转换为$r$进制数字, 应当从低位到高位, 但是当打印数字时, 应当从高位到低位. 所以, 如果将得到的数字压入栈, 则可以使得后入栈的数字处在栈顶.
+
+\lstinputlisting[style=myCppstyle, caption={Problem 3: solution}]{./c.cpp}
+
+\section*{题目4}
+
+\paragraph*{题目内容} 设计一个算法, 利用一个顺序栈将一个循环序列中的所有元素倒过来, 队头变队尾, 队尾变队头.
+
+\paragraph*{思路}
+始终使用从前向后的遍历方式. 先使用尾部插入法构建循环链表, 造成"a->b->c->d->e"的序列, 然后从前向后遍历并入栈,
+获得栈"abcde", 最后从后向前出栈, 并使用尾部插入法插入, 获得"e->d->c->b->a".
+
+\lstinputlisting[style=myCstyle, caption={Problem 4: solution}]{./d.c}
+
+\section*{题目5}
+
+\paragraph*{题目内容}
+有一个整数数组a, 设计一个算法,
+将所有偶数位的元素移动到所有奇数位的元素前面, 要求它们的相对次序不变. 例如，a=\{1, 2, 3, 4, 5, 6, 7, 8\},
+移动后a=\{2, 4, 6, 8, 1, 3, 5, 7\}.
+
+\paragraph*{思路}
+创建两个队列q1, q2, 然后通过下表遍历数组a, 若下标为奇数, 则进入队列1, 否则进入队列2.
+在遍历完成之后, 再通过下标遍历一次数组. 先将q2出队列给数组元素赋值, 直到q2为空.
+然后再对q2出队列, 直到q2为空 (此时下标应该到达数组尾部).
+
+\lstinputlisting[style=myCppstyle, caption={Problem 5: solution}]{./e.cpp}
+
+\section*{题目5}
+
+创建循环队列, 方法见代码. 使用定长数组作为队列, 设置下标beginIndex和endIndex.
+如果二者之差等于数组长度, 则队满, 相等, 则队空.
+出队列时则可以将beginIndex加一, 入队列则可以将endIndex加一.
+在访问数组时, 只需要将下标对数组长度取模, 即可正确访问元素.
+
+\lstinputlisting[style=myCstyle, caption={Problem 6: solution}]{./f.c}
+
+\end{document}
