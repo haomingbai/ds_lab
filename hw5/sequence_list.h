@@ -17,10 +17,6 @@ typedef struct sequence_list {
   size_t capacity;
 } sequence_list;
 
-size_t sequence_list_size(sequence_list *lst) {
-  return lst->size;
-}
-
 #define INIT_SEQUENCE_LIST(TYPE, LIST_PTR) \
   do {                                     \
     void *dat = malloc(sizeof(TYPE));      \
@@ -167,13 +163,13 @@ size_t sequence_list_size(sequence_list *lst) {
     }                                                                          \
   } while (0)
 
-void destroy_sequence_list(sequence_list *lst) {
+inline void destroy_sequence_list(sequence_list *lst) {
   free(lst->data);
   lst->capacity = 0;
   lst->size = 0;
 }
 
-bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
+inline bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
 
 // Sqeuence queue
 
@@ -191,11 +187,11 @@ typedef struct sequence_queue {
     ((Q_PTR)->end_pos) = 0;                                  \
   } while (0)
 
-bool sequence_queue_empty(sequence_queue *queue) {
+inline bool sequence_queue_empty(sequence_queue *queue) {
   return queue->begin_pos == queue->end_pos;
 }
 
-bool sequence_queue_full(sequence_queue *queue) {
+inline bool sequence_queue_full(sequence_queue *queue) {
   return (queue->end_pos - queue->begin_pos) >= queue->lst.size;
 }
 
@@ -210,7 +206,7 @@ bool sequence_queue_full(sequence_queue *queue) {
     }                                                                          \
   } while (0)
 
-void sequence_queue_pop(sequence_queue *queue) {
+inline void sequence_queue_pop(sequence_queue *queue) {
   if (!sequence_queue_empty(queue)) {
     (queue->begin_pos)++;
     if (queue->begin_pos >= queue->lst.size) {
@@ -224,7 +220,7 @@ void sequence_queue_pop(sequence_queue *queue) {
 #define SEQUENCE_QUEUE_FRONT(TYPE, Q_PTR) \
   SEQUENCE_LIST_REFERENCE(TYPE, (&((Q_PTR)->lst)), ((Q_PTR)->begin_pos))
 
-void destroy_sequence_queue(sequence_queue *queue) {
+inline void destroy_sequence_queue(sequence_queue *queue) {
   destroy_sequence_list(&queue->lst);
   queue->begin_pos = 0;
   queue->end_pos = 0;
@@ -245,11 +241,11 @@ typedef sequence_list sequence_stack;
 #define SEQUENCE_STACK_POP(TYPE, STACK_PTR) \
   SEQUENCE_LIST_POP_BACK(TYPE, STACK_PTR)
 
-void destroy_sequence_stack(sequence_stack *stack) {
+inline void destroy_sequence_stack(sequence_stack *stack) {
   destroy_sequence_list(stack);
 }
 
-bool sequence_stack_empty(sequence_stack *stack) {
+inline bool sequence_stack_empty(sequence_stack *stack) {
   return sequence_list_empty(stack);
 }
 

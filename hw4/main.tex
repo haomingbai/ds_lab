@@ -1,0 +1,131 @@
+\documentclass[a4paper]{article}
+
+\usepackage{ctex}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{myorange}{rgb}{0.9,0.4,0}
+\definecolor{mybackground}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{myCstyle}{
+  backgroundcolor=\color{mybackground},
+  commentstyle=\color{mygreen},
+  keywordstyle=\color{blue},
+  numberstyle=\tiny\color{mygray},
+  stringstyle=\color{myorange},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C
+}
+
+\lstdefinestyle{myCPPstyle}{
+  backgroundcolor=\color{mybackground},
+  commentstyle=\color{mygreen},
+  keywordstyle=\color{blue},
+  numberstyle=\tiny\color{mygray},
+  stringstyle=\color{myorange},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=C++
+}
+
+
+\title{数据结构-第三次作业}
+
+\author{姓名:白昊明, 学号: 2023301350}
+
+\begin{document}
+\maketitle
+\section*{题目1}
+
+\paragraph*{题目内容} 设计一个算法, 计算一个仅包含字母字符的顺序串s中最大字母出现的次数.
+
+\paragraph*{思路} 最大字母可以通过比较大小获得. 本题采用贪心算法, 当检测到更大字母时将计数器重置为1并且更新待检测字母.
+
+\lstinputlisting[style=myCstyle, caption = {Problem 1: solution}]{./a.c}
+
+\section*{题目2}
+
+\paragraph*{题目内容} 设计一个算法, 判断顺序串s是否为回文 (回文指一个字符串从前向后堵和
+从后向前读的结果相同).
+
+\paragraph*{思路} 设置一个栈, 然后在字符串的前半部分(向下取整)进行入栈, 在后半部分出栈. 如果遇到不相同元素则返回否定. 但是本题可以直接分别从首尾遍历字符串, 在速度上恐怕更优化 \dots \dots
+
+此外, 当字符串的长度大于8时, 可以将字符指针强制转化为长整数指针, 然后利用长整数的比较和字符占用相同时钟周期加快运算速度. 另外, 使用C++ 26中即将加入的simd库, 可以充分利用先进CPU的新指令, 实现更快的计算.
+
+\lstinputlisting[style=myCstyle, caption={Problem 2: solution}]{./b.c}
+
+\section*{题目3}
+\paragraph*{题目内容} 设有一个顺序串s, 其字符仅由数字和小写字母组成. 设计一个算法, 将s中
+的所有数字字符放在前半部分, 将所有小写字母字符放在后半部分, 并给出
+算法的时间和空间复杂度.
+
+\paragraph*{思路} 这个题目可以设置两个队列, 一个存放字母, 另一个存放数字. 先遍历字符串, 然后将遍历到的字符送进队列. 完成之后执行出队列操作, 先对存放数字的队列进行出队列, 然后是存放字母的队列. 时间复杂度$O(n)$.
+
+\lstinputlisting[style=myCstyle, caption={Problem 3: solution}]{./c.c}
+
+\section*{题目4}
+
+\paragraph*{题目内容} 如果串中一个长度大于1的子串的全部字符相同, 则称为等值子串. 设计一
+个算法, 求顺序串s中一个长度最大的等值子串t, 如果串s中不存在等值子
+串, 则t为空串.
+
+\paragraph*{思路}
+设置一个字符标志和一个计数器. 当检测到当前字母和下一个字母相同时, 则将计数器置为1并继续遍历,
+如果当前字母和字母标志相同, 则将计数器自增.
+
+\lstinputlisting[style=myCppstyle, caption={Problem 4: solution}]{./d.cpp}
+
+\section*{题目5}
+
+\paragraph*{题目内容}
+5. 设计一个算法, 删除一个链串s中所有非重叠的“abc”子串. 例如,
+s=“aabcabcd”, 删除后s=“ad”.
+
+\paragraph*{思路}
+遍历, 遇到匹配立刻删除, 最坏复杂度$O(n * m)$
+
+\lstinputlisting[style=myCppstyle, caption={Problem 5: solution}]{./e.cpp}
+
+\section*{题目6}
+
+\paragraph*{题目内容}
+假设字符串s采用链串存储, 设计一个算法, 判断是否为"x@x"形式的串，
+其中x是不含"@"的任意串. 例如, 当s="ab@ab"时返回true, 当
+s="abcd"时返回false.
+
+\paragraph*{思路}
+这个题目可以找到"@"的位置, 然后设置两个指针, 分别指向字符串的开头和'@'之后的下一个字符, 然后进行比较. 如果找到不同的字符就是false, 否则为true.
+
+\lstinputlisting[style=myCppstyle, caption={Problem 6: solution}]{./f.c}
+
+\section*{题目7, 8}
+
+\paragraph*{题目内容}
+模式匹配算法
+
+\lstinputlisting[style=myCppstyle, caption={Problem 6: solution}]{./g.c}
+\lstinputlisting[style=myCppstyle, caption={Problem 6: solution}]{./h.c}
+
+\end{document}

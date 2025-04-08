@@ -1,26 +1,30 @@
-#pragma once
-
-#ifndef SEQUENCE_LIST_H__
-#define SEQUENCE_LIST_H__
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+// 范型顺序表, 模拟C++的vectror.
+// 范型顺序表维护了一整套的API, 用来实现自动扩容, 调整容量, 预分配内存等
+
+// 计算较大元素的工具
 #define MAX_OF(A, B) (((A) < (B)) ? (B) : (A))
 
+// 顺序表数据结构定义.
+// 为避免过多的结构体声明, 使用void *存储数据.
+// 在调用多数API时, 需要手动传入存储数据的类型.
+// 一个顺序表只建议存储一种数据, 乱写类型是未定义的!
 typedef struct sequence_list {
   void *data;
   size_t size;
   size_t capacity;
 } sequence_list;
 
-size_t sequence_list_size(sequence_list *lst) {
-  return lst->size;
-}
+// 再三思考后加入`列表大小`API, 在实现这个API之后结构体内部实现对用户透明,
+// 降低软件偶合度, 用户不应该手动访问结构体内部成员
+size_t sequence_list_size(sequence_list *lst) { return lst->size; }
 
+// 初始化顺序表, 预分配大小为一个元素的内存单元
 #define INIT_SEQUENCE_LIST(TYPE, LIST_PTR) \
   do {                                     \
     void *dat = malloc(sizeof(TYPE));      \
@@ -33,6 +37,9 @@ size_t sequence_list_size(sequence_list *lst) {
     }                                      \
   } while (0)
 
+// 在顺序表末尾插入元素. 注意: 本次实现的顺序表只适用于POD, 即平凡数据类型.
+// 也就是说, 需要拷贝构造函数,
+// 移动构造函数和其它任何构造函数的结构体不应该用此表存储.
 #define SEQUENCE_LIST_PUSH_BACK(TYPE, LIST_PTR, VAL)                  \
   do {                                                                \
     bool flag = true;                                                 \
@@ -55,9 +62,12 @@ size_t sequence_list_size(sequence_list *lst) {
     }                                                                 \
   } while (0)
 
+// 获得顺序表中特定位置元素的引用, C++中左值引用是相当重要的概念. 在C语言中,
+// 引用的支持也能大幅度简化代码
 #define SEQUENCE_LIST_REFERENCE(TYPE, LIST_PTR, POSITION) \
   (((TYPE *)((LIST_PTR)->data))[(POSITION) % ((LIST_PTR)->size)])
 
+// 获得顺序表特定位置的指针
 #define SEQUENCE_LIST_AT(TYPE, LIST_PTR, POSITION) \
   (((TYPE *)((LIST_PTR)->data)) + (POSITION))
 
@@ -175,82 +185,137 @@ void destroy_sequence_list(sequence_list *lst) {
 
 bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
 
-// Sqeuence queue
+// Matrix data structure
 
-typedef struct sequence_queue {
-  size_t begin_pos;
-  size_t end_pos;
-  sequence_list lst;
-} sequence_queue;
+#define DEFINE_MAT_ELEM_STRUCT(TYPE)                                  \
+  typedef struct mat_elem_##TYPE {                                    \
+    size_t i;                                                         \
+    size_t j;                                                         \
+    TYPE elem;                                                        \
+  } mat_elem_##TYPE;                                                  \
+  int mat_elem_##TYPE##_val_cmp(const void *a, const void *b) {       \
+    const mat_elem_##TYPE *aPtr = (mat_elem_##TYPE *)a,               \
+                          *bPtr = (mat_elem_##TYPE *)b;               \
+    if (aPtr->elem > bPtr->elem) {                                    \
+      return 1;                                                       \
+    } else if (aPtr->elem == bPtr->elem) {                            \
+      return 0;                                                       \
+    } else {                                                          \
+      return -1;                                                      \
+    }                                                                 \
+  }                                                                   \
+  int mat_elem_##TYPE##_row_first_cmp(const void *a, const void *b) { \
+    const mat_elem_##TYPE *aPtr = (mat_elem_##TYPE *)a,               \
+                          *bPtr = (mat_elem_##TYPE *)b;               \
+    if (aPtr->i > bPtr->i) {                                          \
+      return 1;                                                       \
+    } else if (aPtr->i < bPtr->i) {                                   \
+      return -1;                                                      \
+    } else {                                                          \
+      if (aPtr->j > bPtr->j) {                                        \
+        return 1;                                                     \
+      } else if (aPtr->j < bPtr->j) {                                 \
+        return -1;                                                    \
+      } else {                                                        \
+        return 0;                                                     \
+      }                                                               \
+    }                                                                 \
+  }                                                                   \
+  int mat_elem_##TYPE##_col_first_cmp(const void *a, const void *b) { \
+    const mat_elem_##TYPE *aPtr = (mat_elem_##TYPE *)a,               \
+                          *bPtr = (mat_elem_##TYPE *)b;               \
+    if (aPtr->j > bPtr->j) {                                          \
+      return 1;                                                       \
+    } else if (aPtr->j < bPtr->j) {                                   \
+      return -1;                                                      \
+    } else {                                                          \
+      if (aPtr->i > bPtr->i) {                                        \
+        return 1;                                                     \
+      } else if (aPtr->i < bPtr->i) {                                 \
+        return -1;                                                    \
+      } else {                                                        \
+        return 0;                                                     \
+      }                                                               \
+    }                                                                 \
+  }
 
-#define INIT_SEQUENCE_QUEUE(TYPE, Q_PTR, CAPACITY)           \
-  do {                                                       \
-    INIT_SEQUENCE_LIST(TYPE, (&((Q_PTR)->lst)));             \
-    SEQUENCE_LIST_RESIZE(TYPE, (&((Q_PTR)->lst)), CAPACITY); \
-    ((Q_PTR)->begin_pos) = 0;                                \
-    ((Q_PTR)->end_pos) = 0;                                  \
+DEFINE_MAT_ELEM_STRUCT(short)
+
+#define MAT_ELEM(TYPE) mat_elem_##TYPE
+#define MAT_ELEM_CMP(TYPE, CMP_TYPE) mat_elem_##TYPE##_##CMP_TYPE##_cmp
+
+enum seq_type { ROW, COL, VAL, MASS };
+
+typedef struct matrix {
+  // The data of elements.
+  sequence_list data;
+  size_t row_num, col_num;
+} matrix;
+
+#define INIT_MATRIX(TYPE, MAT_PTR, ROW_NUM, COL_NUM)          \
+  do {                                                        \
+    INIT_SEQUENCE_LIST(MAT_ELEM(TYPE), (&((MAT_PTR)->data))); \
+    ((MAT_PTR)->row_num) = (ROW_NUM);                         \
+    ((MAT_PTR)->col_num) = (COL_NUM);                         \
   } while (0)
 
-bool sequence_queue_empty(sequence_queue *queue) {
-  return queue->begin_pos == queue->end_pos;
-}
-
-bool sequence_queue_full(sequence_queue *queue) {
-  return (queue->end_pos - queue->begin_pos) >= queue->lst.size;
-}
-
-#define SEQUENCE_QUEUE_PUSH(TYPE, Q_PTR, VAL)                                  \
-  do {                                                                         \
-    if (!sequence_queue_full((Q_PTR))) {                                       \
-      SEQUENCE_LIST_REFERENCE(TYPE, (&((Q_PTR)->lst)), (((Q_PTR)->end_pos))) = \
-          (VAL);                                                               \
-      ((Q_PTR)->end_pos)++;                                                    \
-    } else {                                                                   \
-      perror("The queue is full, giving up...");                               \
-    }                                                                          \
+#define MATRIX_ADD_ELEM(TYPE, MAT_PTR, ELEM)                               \
+  do {                                                                     \
+    SEQUENCE_LIST_PUSH_BACK(MAT_ELEM(TYPE), (&((MAT_PTR)->data)), (ELEM)); \
   } while (0)
 
-void sequence_queue_pop(sequence_queue *queue) {
-  if (!sequence_queue_empty(queue)) {
-    (queue->begin_pos)++;
-    if (queue->begin_pos >= queue->lst.size) {
-      queue->begin_pos -= queue->lst.size;
-      queue->end_pos -= queue->lst.size;
+#define MATRIX_ELEM_NUM(MAT_PTR) (sequence_list_size((&((MAT_PTR)->data))))
+
+#define MATRIX_SET_SEQ(TYPE, MAT_PTR, SEQ_TYPE)                       \
+  do {                                                                \
+    switch ((SEQ_TYPE)) {                                             \
+      case ROW:                                                       \
+        qsort(((MAT_PTR)->data.data), MATRIX_ELEM_NUM((MAT_PTR)),     \
+              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, row_first)); \
+        break;                                                        \
+      case COL:                                                       \
+        qsort(((MAT_PTR)->data.data), MATRIX_ELEM_NUM((MAT_PTR)),     \
+              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, col_first)); \
+        break;                                                        \
+      case VAL:                                                       \
+        qsort(((MAT_PTR)->data.data), MATRIX_ELEM_NUM((MAT_PTR)),     \
+              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, val));       \
+        break;                                                        \
+      default:                                                        \
+        break;                                                        \
+    }                                                                 \
+  } while (0)
+
+#define MATRIX_TRANSPOSE(TYPE, MAT_PTR, SEQ_TYPE)                         \
+  do {                                                                    \
+    for (size_t i = 0; i < MATRIX_ELEM_NUM(MAT_PTR); i++) {               \
+      size_t tmp =                                                        \
+          SEQUENCE_LIST_AT(MAT_ELEM(TYPE), (&((MAT_PTR)->data)), i)->i;   \
+      SEQUENCE_LIST_AT(MAT_ELEM(TYPE), (&((MAT_PTR)->data)), i)->i =      \
+          SEQUENCE_LIST_AT(MAT_ELEM(TYPE), (&((MAT_PTR)->data)), i)->j;   \
+      SEQUENCE_LIST_AT(MAT_ELEM(TYPE), (&((MAT_PTR)->data)), i)->j = tmp; \
+    }                                                                     \
+    MATRIX_SET_SEQ(TYPE, (MAT_PTR), SEQ_TYPE);                            \
+  } while (0)
+
+main() {
+  matrix mat;
+
+  size_t row_num, col_num;
+  scanf("%ld%ld", &row_num, &col_num);
+  INIT_MATRIX(short, &mat, row_num, col_num);
+
+  while (1) {
+    MAT_ELEM(short) elem;
+    scanf("%ld%ld%hd", &elem.i, &elem.j, &elem.elem);
+    if (elem.i == 0 && elem.j == 0 && elem.elem == 0) {
+      break;
     }
-  } else {
-    perror("The queue is already empty, giving up...");
+    MATRIX_ADD_ELEM(short, &mat, elem);
+  }
+  MATRIX_TRANSPOSE(short, &mat, MASS);
+  for (size_t i = 0; i < MATRIX_ELEM_NUM(&mat); i++) {
+    MAT_ELEM(short) *curr = SEQUENCE_LIST_AT(MAT_ELEM(short), &mat.data, i);
+    printf("%ld %ld %hd\n", curr->i, curr->j, curr->elem);
   }
 }
-#define SEQUENCE_QUEUE_FRONT(TYPE, Q_PTR) \
-  SEQUENCE_LIST_REFERENCE(TYPE, (&((Q_PTR)->lst)), ((Q_PTR)->begin_pos))
-
-void destroy_sequence_queue(sequence_queue *queue) {
-  destroy_sequence_list(&queue->lst);
-  queue->begin_pos = 0;
-  queue->end_pos = 0;
-}
-
-// Sequence stack
-
-typedef sequence_list sequence_stack;
-
-#define INIT_SEQUENCE_STACK(TYPE, STACK_PTR) INIT_SEQUENCE_LIST(TYPE, STACK_PTR)
-
-#define SEQUENCE_STACK_PUSH(TYPE, STACK_PTR, VAL) \
-  SEQUENCE_LIST_PUSH_BACK(TYPE, STACK_PTR, VAL)
-
-#define SEQUENCE_STACK_TOP(TYPE, STACK_PTR) \
-  SEQUENCE_LIST_REFERENCE(TYPE, STACK_PTR, (((STACK_PTR)->size) - 1))
-
-#define SEQUENCE_STACK_POP(TYPE, STACK_PTR) \
-  SEQUENCE_LIST_POP_BACK(TYPE, STACK_PTR)
-
-void destroy_sequence_stack(sequence_stack *stack) {
-  destroy_sequence_list(stack);
-}
-
-bool sequence_stack_empty(sequence_stack *stack) {
-  return sequence_list_empty(stack);
-}
-
-#endif

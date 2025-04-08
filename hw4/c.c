@@ -140,112 +140,13 @@ void _free_empty_circular_linked_list_(circular_linked_list *list_ptr) {
   list_ptr->head = NULL;
 }
 
-// Begin and end does not store information.
-void linked_list_sort(intrusive_node *begin, intrusive_node *end,
-                      int (*cmp)(const intrusive_node *a,
-                                 const intrusive_node *b)) {
-  if (begin->next == end) {
-    return;
-  }
-
-  size_t list_len = 0;
-  for (intrusive_node *it = begin->next; it != end; it = it->next) {
-    list_len++;
-  }
-  if (list_len == 1) {
-    return;
-  }
-
-  size_t front_len = list_len / 2, back_len = list_len - (list_len / 2);
-  // Insert the guard node to the middle of the list.
-  intrusive_node guard_node, *iter = begin;
-  for (size_t i = 0; i < front_len; i++) {
-    iter = iter->next;
-  }
-  // Insert node to the back of the iterator.
-  guard_node.next = iter->next, guard_node.prev = iter,
-  iter->next->prev = &guard_node, iter->next = &guard_node;
-
-  linked_list_sort(begin, &guard_node, cmp);
-  linked_list_sort(&guard_node, end, cmp);
-
-  intrusive_node new_begin, new_end;
-  new_begin.prev = NULL, new_end.next = NULL, new_begin.next = &new_end,
-  new_end.prev = &new_begin;
-  intrusive_node *front_it = begin->next, *back_it = guard_node.next;
-
-  while (front_it != &guard_node && back_it != end) {
-    if (cmp(front_it, back_it) > 0) {
-      intrusive_node *node_to_move = back_it;
-      back_it = back_it->next;
-      node_to_move->next = &new_end;
-      node_to_move->prev = new_end.prev;
-      new_end.prev->next = node_to_move;
-      new_end.prev = node_to_move;
-    } else {
-      intrusive_node *node_to_move = front_it;
-      front_it = front_it->next;
-      node_to_move->next = &new_end;
-      node_to_move->prev = new_end.prev;
-      new_end.prev->next = node_to_move;
-      new_end.prev = node_to_move;
-    }
-  }
-
-  while (front_it != &guard_node) {
-    intrusive_node *node_to_move = front_it;
-    front_it = front_it->next;
-    node_to_move->next = &new_end;
-    node_to_move->prev = new_end.prev;
-    new_end.prev->next = node_to_move;
-    new_end.prev = node_to_move;
-  }
-  while (back_it != end) {
-    intrusive_node *node_to_move = back_it;
-    back_it = back_it->next;
-    node_to_move->next = &new_end;
-    node_to_move->prev = new_end.prev;
-    new_end.prev->next = node_to_move;
-    new_end.prev = node_to_move;
-  }
-
-  new_begin.next->prev = begin, new_end.prev->next = end;
-  begin->next = new_begin.next, end->prev = new_end.prev;
-}
-
 // Test code ...
 
 // char_node, a kind of node of char.
-
 typedef struct char_node {
   char dat;
   intrusive_node node;
 } char_node;
-
-// Test code for sort.
-int char_node_cmp(const intrusive_node *node1, const intrusive_node *node2) {
-  return CONTAINER_OF(char_node, node, node1)->dat -
-         CONTAINER_OF(char_node, node, node2)->dat;
-}
-
-int main(void) {
-  setbuf(stdout, NULL);
-  circular_linked_list lst;
-  INIT_LINKED_LIST(circular_linked_list, &lst);
-  for (char i = 'z'; i >= 'a'; i--) {
-    intrusive_node *node = MAKE_NODE(char_node, node);
-    CONTAINER_OF(char_node, node, node)->dat = i;
-    INSERT_IN_FRONT_OF(&lst, lst.head, node);
-  }
-  linked_list_sort(lst.head, lst.head, char_node_cmp);
-
-  intrusive_node *currentNode = lst.head->next;
-  while (currentNode != lst.head) {
-    putchar(CONTAINER_OF(char_node, node, currentNode)->dat);
-    currentNode = currentNode->next;
-  }
-  putchar('\n');
-}
 
 // int main() {
 //   doubly_linked_list dlist;
@@ -313,24 +214,56 @@ intrusive_node *linked_queue_pop(linked_queue *queue) {
   return node;
 }
 
-// Test code, queue
-// int main() {
-//   linked_queue queue;
-//   init_linked_queue(&queue);
-//
-//   for (char ch = 'a'; ch <= 'z'; ch++) {
-//     intrusive_node *newNode = MAKE_NODE(char_node, node);
-//     CONTAINER_OF(char_node, node, newNode)->dat = ch;
-//     linked_queue_push(&queue, newNode);
-//   }
-//
-//   for (char ch = 'a'; ch <= 'z'; ch++) {
-//     const intrusive_node *nodeView = linked_queue_front(&queue);
-//     assert(ch == CONTAINER_OF(char_node, node, nodeView)->dat);
-//
-//     intrusive_node *node = linked_queue_pop(&queue);
-//     assert(ch == CONTAINER_OF(char_node, node, node)->dat);
-//
-//     free(CONTAINER_OF(char_node, node, node));
-//   }
-// }
+#define _free_empty_linked_queue_ _free_empty_circular_linked_list_
+
+void moveDigitToFront(char *str) {
+  size_t len = strlen(str);
+  linked_queue qNum, qChar;
+  init_linked_queue(&qNum);
+  init_linked_queue(&qChar);
+
+  for (size_t i = 0; i < len; i++) {
+    if ('0' <= str[i] && str[i] <= '9') {
+      intrusive_node *newNode = MAKE_NODE(char_node, node);
+      CONTAINER_OF(char_node, node, newNode)->dat = str[i];
+      linked_queue_push(&qNum, newNode);
+    } else if ('a' <= str[i] && str[i] <= 'z') {
+      intrusive_node *newNode = MAKE_NODE(char_node, node);
+      CONTAINER_OF(char_node, node, newNode)->dat = str[i];
+      linked_queue_push(&qChar, newNode);
+    } else {
+      assert(0);
+    }
+  }
+
+  size_t idx = 0;
+
+  while (!linked_queue_empty(&qNum)) {
+    intrusive_node *node = linked_queue_pop(&qNum);
+    char ch = CONTAINER_OF(char_node, node, node)->dat;
+    free(CONTAINER_OF(char_node, node, node));
+    str[idx++] = ch;
+  }
+
+  while (!linked_queue_empty(&qChar)) {
+    intrusive_node *node = linked_queue_pop(&qChar);
+    char ch = CONTAINER_OF(char_node, node, node)->dat;
+    free(CONTAINER_OF(char_node, node, node));
+    str[idx++] = ch;
+  }
+
+  DESTROY_LIST(char_node, node, linked_queue, &qNum);
+  DESTROY_LIST(char_node, node, linked_queue, &qChar);
+}
+
+int main() {
+  size_t n;
+  scanf("%ld", &n);
+
+  char *str = (char *)(malloc(sizeof(char) * (n + 1)));
+  scanf("%s", str);
+
+  printf("original string: %s\n", str);
+  moveDigitToFront(str);
+  printf("processed string: %s\n", str);
+}

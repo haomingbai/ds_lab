@@ -1,8 +1,3 @@
-#pragma once
-
-#ifndef SEQUENCE_LIST_H__
-#define SEQUENCE_LIST_H__
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -16,10 +11,6 @@ typedef struct sequence_list {
   size_t size;
   size_t capacity;
 } sequence_list;
-
-size_t sequence_list_size(sequence_list *lst) {
-  return lst->size;
-}
 
 #define INIT_SEQUENCE_LIST(TYPE, LIST_PTR) \
   do {                                     \
@@ -57,9 +48,6 @@ size_t sequence_list_size(sequence_list *lst) {
 
 #define SEQUENCE_LIST_REFERENCE(TYPE, LIST_PTR, POSITION) \
   (((TYPE *)((LIST_PTR)->data))[(POSITION) % ((LIST_PTR)->size)])
-
-#define SEQUENCE_LIST_AT(TYPE, LIST_PTR, POSITION) \
-  (((TYPE *)((LIST_PTR)->data)) + (POSITION))
 
 #define SEQUENCE_LIST_POP_BACK(TYPE, LIST_PTR)                      \
   do {                                                              \
@@ -175,60 +163,6 @@ void destroy_sequence_list(sequence_list *lst) {
 
 bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
 
-// Sqeuence queue
-
-typedef struct sequence_queue {
-  size_t begin_pos;
-  size_t end_pos;
-  sequence_list lst;
-} sequence_queue;
-
-#define INIT_SEQUENCE_QUEUE(TYPE, Q_PTR, CAPACITY)           \
-  do {                                                       \
-    INIT_SEQUENCE_LIST(TYPE, (&((Q_PTR)->lst)));             \
-    SEQUENCE_LIST_RESIZE(TYPE, (&((Q_PTR)->lst)), CAPACITY); \
-    ((Q_PTR)->begin_pos) = 0;                                \
-    ((Q_PTR)->end_pos) = 0;                                  \
-  } while (0)
-
-bool sequence_queue_empty(sequence_queue *queue) {
-  return queue->begin_pos == queue->end_pos;
-}
-
-bool sequence_queue_full(sequence_queue *queue) {
-  return (queue->end_pos - queue->begin_pos) >= queue->lst.size;
-}
-
-#define SEQUENCE_QUEUE_PUSH(TYPE, Q_PTR, VAL)                                  \
-  do {                                                                         \
-    if (!sequence_queue_full((Q_PTR))) {                                       \
-      SEQUENCE_LIST_REFERENCE(TYPE, (&((Q_PTR)->lst)), (((Q_PTR)->end_pos))) = \
-          (VAL);                                                               \
-      ((Q_PTR)->end_pos)++;                                                    \
-    } else {                                                                   \
-      perror("The queue is full, giving up...");                               \
-    }                                                                          \
-  } while (0)
-
-void sequence_queue_pop(sequence_queue *queue) {
-  if (!sequence_queue_empty(queue)) {
-    (queue->begin_pos)++;
-    if (queue->begin_pos >= queue->lst.size) {
-      queue->begin_pos -= queue->lst.size;
-      queue->end_pos -= queue->lst.size;
-    }
-  } else {
-    perror("The queue is already empty, giving up...");
-  }
-}
-#define SEQUENCE_QUEUE_FRONT(TYPE, Q_PTR) \
-  SEQUENCE_LIST_REFERENCE(TYPE, (&((Q_PTR)->lst)), ((Q_PTR)->begin_pos))
-
-void destroy_sequence_queue(sequence_queue *queue) {
-  destroy_sequence_list(&queue->lst);
-  queue->begin_pos = 0;
-  queue->end_pos = 0;
-}
 
 // Sequence stack
 
@@ -253,4 +187,27 @@ bool sequence_stack_empty(sequence_stack *stack) {
   return sequence_list_empty(stack);
 }
 
-#endif
+bool is_palindrome(char *src) {
+  size_t len = strlen(src);
+  sequence_stack st;
+  INIT_SEQUENCE_STACK(char, &st);
+
+  for (size_t i = 0; i < len; i++) {
+    SEQUENCE_STACK_PUSH(char, &st, src[i]);
+  }
+
+  for (size_t i = 0; i < len; i++) {
+    char x = SEQUENCE_STACK_TOP(char, &st);
+    SEQUENCE_STACK_POP(char, &st);
+    if (x != src[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int main() {
+  char src[1000] = {0};
+  scanf("%s", src);
+  is_palindrome(src) ? puts("true\n") : puts("false\n");
+}

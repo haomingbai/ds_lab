@@ -213,85 +213,6 @@ void linked_list_sort(intrusive_node *begin, intrusive_node *end,
   begin->next = new_begin.next, end->prev = new_end.prev;
 }
 
-// Test code ...
-
-// char_node, a kind of node of char.
-
-typedef struct char_node {
-  char dat;
-  intrusive_node node;
-} char_node;
-
-// Test code for sort.
-int char_node_cmp(const intrusive_node *node1, const intrusive_node *node2) {
-  return CONTAINER_OF(char_node, node, node1)->dat -
-         CONTAINER_OF(char_node, node, node2)->dat;
-}
-
-int main(void) {
-  setbuf(stdout, NULL);
-  circular_linked_list lst;
-  INIT_LINKED_LIST(circular_linked_list, &lst);
-  for (char i = 'z'; i >= 'a'; i--) {
-    intrusive_node *node = MAKE_NODE(char_node, node);
-    CONTAINER_OF(char_node, node, node)->dat = i;
-    INSERT_IN_FRONT_OF(&lst, lst.head, node);
-  }
-  linked_list_sort(lst.head, lst.head, char_node_cmp);
-
-  intrusive_node *currentNode = lst.head->next;
-  while (currentNode != lst.head) {
-    putchar(CONTAINER_OF(char_node, node, currentNode)->dat);
-    currentNode = currentNode->next;
-  }
-  putchar('\n');
-}
-
-// int main() {
-//   doubly_linked_list dlist;
-//   INIT_LINKED_LIST(doubly_linked_list, &dlist);
-//   for (char i = 'a'; i < 'z'; i++) {
-//     intrusive_node *newNode = MAKE_NODE(char_node, node);
-//     CONTAINER_OF(char_node, node, newNode)->dat = i;
-//     INSERT_IN_FRONT_OF(&dlist, dlist.tail, newNode);
-//   }
-//
-//   intrusive_node *nodeForTest = dlist.head->next;
-//
-//   while (nodeForTest != dlist.tail) {
-//     char x = CONTAINER_OF(char_node, node, nodeForTest)->dat;
-//     putchar(x);
-//     intrusive_node *oldNode = nodeForTest;
-//     nodeForTest = nodeForTest->next;
-//     // REMOVE_AND_RELEASE(char_node, node, &dlist, oldNode);
-//   }
-//   DESTROY_LIST(char_node, node, doubly_linked_list, &dlist);
-//   putchar('\n');
-// }
-
-// int main() {
-//   circular_linked_list clist;
-//   INIT_LINKED_LIST(circular_linked_list, &clist);
-//
-//   for (char i = 'a'; i < 'z'; i++) {
-//     intrusive_node *node = MAKE_NODE(char_node, node);
-//     CONTAINER_OF(char_node, node, node)->dat = i;
-//     INSERT_IN_FRONT_OF(&clist, clist.head, node);
-//   }
-//
-//   intrusive_node *node = clist.head->next;
-//
-//   while(node != clist.head) {
-//     char x = CONTAINER_OF(char_node, node, node)->dat;
-//     putchar(x);
-//     node = node->next;
-//   }
-//
-//   DESTROY_LIST(char_node, node, circular_linked_list, &clist);
-// }
-
-// Linked queue.
-
 typedef circular_linked_list linked_queue;
 
 void init_linked_queue(linked_queue *queue) {
@@ -313,24 +234,93 @@ intrusive_node *linked_queue_pop(linked_queue *queue) {
   return node;
 }
 
-// Test code, queue
-// int main() {
-//   linked_queue queue;
-//   init_linked_queue(&queue);
-//
-//   for (char ch = 'a'; ch <= 'z'; ch++) {
-//     intrusive_node *newNode = MAKE_NODE(char_node, node);
-//     CONTAINER_OF(char_node, node, newNode)->dat = ch;
-//     linked_queue_push(&queue, newNode);
-//   }
-//
-//   for (char ch = 'a'; ch <= 'z'; ch++) {
-//     const intrusive_node *nodeView = linked_queue_front(&queue);
-//     assert(ch == CONTAINER_OF(char_node, node, nodeView)->dat);
-//
-//     intrusive_node *node = linked_queue_pop(&queue);
-//     assert(ch == CONTAINER_OF(char_node, node, node)->dat);
-//
-//     free(CONTAINER_OF(char_node, node, node));
-//   }
-// }
+// Specific program.
+
+typedef doubly_linked_list linked_string;
+
+typedef struct char_node {
+  char dat;
+  intrusive_node node;
+} char_node;
+
+int char_node_cmp(const intrusive_node *a, const intrusive_node *b) {
+  return CONTAINER_OF(char_node, node, a)->dat -
+         CONTAINER_OF(char_node, node, b)->dat;
+}
+
+void removeSubString(doubly_linked_list *src, const doubly_linked_list *sub) {
+  for (auto iter = src->head->next; iter != src->tail;) {
+    if (!char_node_cmp(iter, sub->head->next)) {
+      auto tmpSrcIt = iter, tmpSubIt = sub->head->next;
+      size_t matchSize = 0;
+      while (tmpSrcIt != src->tail && tmpSubIt != sub->tail &&
+             !char_node_cmp(tmpSrcIt, tmpSubIt)) {
+        matchSize++;
+        tmpSubIt = tmpSubIt->next;
+        tmpSrcIt = tmpSrcIt->next;
+      }
+      if (matchSize == sub->size) {
+        iter = tmpSrcIt;
+        for (size_t i = 0; i < matchSize; i++) {
+          REMOVE_AND_RELEASE(char_node, node, src, iter->prev);
+        }
+        if (iter == src->tail) {
+          break;
+        }
+      } else {
+        iter = iter->next;
+      }
+    } else {
+      iter = iter->next;
+    }
+  }
+}
+
+int main() {
+  linked_string src, sub;
+  INIT_LINKED_LIST(doubly_linked_list, &src);
+  INIT_LINKED_LIST(doubly_linked_list, &sub);
+
+  intrusive_node *node;
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'a';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'a';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'b';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'c';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'a';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'b';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'c';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'd';
+  INSERT_IN_FRONT_OF(&src, src.tail, node);
+
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'a';
+  INSERT_IN_FRONT_OF(&sub, sub.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'b';
+  INSERT_IN_FRONT_OF(&sub, sub.tail, node);
+  node = MAKE_NODE(char_node, node);
+  CONTAINER_OF(char_node, node, node)->dat = 'c';
+  INSERT_IN_FRONT_OF(&sub, sub.tail, node);
+
+  removeSubString(&src, &sub);
+  printf("%ld\n", src.size);
+  for (auto iter = src.head->next; iter != src.tail; iter = iter->next) {
+    putchar(CONTAINER_OF(char_node, node, iter)->dat);
+  }
+  putchar('\n');
+}
