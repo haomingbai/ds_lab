@@ -6,29 +6,20 @@
 
 template <typename T>
 bool transpose(std::vector<std::vector<T>> &mat) {
-  bool result = true;
-  size_t m = mat.size();
-  size_t n = 0;
-  for (size_t i = 0; i < m; i++) {
-    n = std::max(n, mat[i].size());
-    if (n != m) {
-      result = false;
-      break;
+  size_t row_num = mat.size();
+  for (auto &it : mat) {
+    if (it.size() != row_num) {
+      return false;
     }
   }
 
-  std::vector<std::vector<int>> rMat(n);
-  for (auto &it : rMat) {
-    it.resize(m);
-  }
-
-  for (size_t i = 0; i < m; i++) {
-    for (size_t j = 0; j < mat[i].size(); j++) {
-      rMat[j][i] = mat[i][j];
+  for (size_t i = 0; i < row_num; i++) {
+    for (size_t j = i + 1; j < row_num; j++) {
+      // Switch the two vars
+      mat[i][j] ^= mat[j][i] ^= mat[i][j] ^= mat[j][i];
     }
   }
-  mat = rMat;
-  return result;
+  return true;
 }
 
 int main() {

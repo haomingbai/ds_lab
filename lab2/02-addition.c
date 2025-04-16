@@ -315,7 +315,9 @@ typedef struct matrix {
                      MATRIX_ELEM_AT(TYPE, SRC2_PTR, pos2)) == 0) {   \
         MAT_ELEM(TYPE) elem = MATRIX_ELEM_REF(TYPE, SRC1_PTR, pos1); \
         elem.elem += MATRIX_ELEM_REF(TYPE, SRC2_PTR, pos2).elem;     \
-        MATRIX_ADD_ELEM(TYPE, DEST_PTR, elem);                       \
+        if (elem.elem) {                                             \
+          MATRIX_ADD_ELEM(TYPE, DEST_PTR, elem);                     \
+        }                                                            \
         pos1++;                                                      \
         pos2++;                                                      \
       }                                                              \

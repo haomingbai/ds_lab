@@ -298,7 +298,7 @@ typedef struct matrix {
     MATRIX_SET_SEQ(TYPE, (MAT_PTR), SEQ_TYPE);                            \
   } while (0)
 
-main() {
+int main() {
   matrix mat;
 
   size_t row_num, col_num;
