@@ -64,12 +64,12 @@ size_t sequence_list_size(sequence_list *lst) { return lst->size; }
 
 // 获得顺序表中特定位置元素的引用, C++中左值引用是相当重要的概念. 在C语言中,
 // 引用的支持也能大幅度简化代码
-#define SEQUENCE_LIST_REFERENCE(TYPE, LIST_PTR, POSITION) \
-  (((TYPE *)((LIST_PTR)->data))[(POSITION) % ((LIST_PTR)->size)])
+#define SEQUENCE_LIST_REFERENCE(TYPE, LIST_PTR, IDX) \
+  (((TYPE *)((LIST_PTR)->data))[(IDX) % ((LIST_PTR)->size)])
 
 // 获得顺序表特定位置的指针
-#define SEQUENCE_LIST_AT(TYPE, LIST_PTR, POSITION) \
-  (((TYPE *)((LIST_PTR)->data)) + (POSITION))
+#define SEQUENCE_LIST_AT(TYPE, LIST_PTR, IDX) \
+  (((TYPE *)((LIST_PTR)->data)) + (IDX))
 
 // 删除顺序表最后一个位置的元素. 因为这个操作和push_back同样常用.
 // 所以本次程序实现和C++中的std::vector相同, 单独实现了push_back和pop_back
@@ -150,7 +150,7 @@ size_t sequence_list_size(sequence_list *lst) { return lst->size; }
   } while (0)
 
 // 顺序表尺寸改变, 尺寸改变之后考虑到时间复杂度, 未对新元素进行初始化
-// 注意: 在尺寸改编后可能导致数据丢失!
+// 注意: 在尺寸改变后可能导致数据丢失!
 #define SEQUENCE_LIST_RESIZE(TYPE, LIST_PTR, NEW_SIZE)              \
   do {                                                              \
     bool flag = true;                                               \
@@ -214,7 +214,7 @@ bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
     size_t j;                                                         \
     TYPE elem;                                                        \
   } mat_elem_##TYPE;                                                  \
-  int mat_elem_##TYPE##_val_cmp(const void *a, const void *b) {       \
+  int mat_elem_##TYPE##_VAL_cmp(const void *a, const void *b) {       \
     const mat_elem_##TYPE *aPtr = (mat_elem_##TYPE *)a,               \
                           *bPtr = (mat_elem_##TYPE *)b;               \
     if (aPtr->elem > bPtr->elem) {                                    \
@@ -225,7 +225,7 @@ bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
       return -1;                                                      \
     }                                                                 \
   }                                                                   \
-  int mat_elem_##TYPE##_row_first_cmp(const void *a, const void *b) { \
+  int mat_elem_##TYPE##_ROW_cmp(const void *a, const void *b) { \
     const mat_elem_##TYPE *aPtr = (mat_elem_##TYPE *)a,               \
                           *bPtr = (mat_elem_##TYPE *)b;               \
     if (aPtr->i > bPtr->i) {                                          \
@@ -242,7 +242,7 @@ bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
       }                                                               \
     }                                                                 \
   }                                                                   \
-  int mat_elem_##TYPE##_col_first_cmp(const void *a, const void *b) { \
+  int mat_elem_##TYPE##_COL_cmp(const void *a, const void *b) { \
     const mat_elem_##TYPE *aPtr = (mat_elem_##TYPE *)a,               \
                           *bPtr = (mat_elem_##TYPE *)b;               \
     if (aPtr->j > bPtr->j) {                                          \
@@ -301,15 +301,15 @@ typedef struct matrix {
     switch ((SEQ_TYPE)) {                                             \
       case ROW:                                                       \
         qsort(((MAT_PTR)->data.data), MATRIX_ELEM_NUM((MAT_PTR)),     \
-              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, row_first)); \
+              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, ROW)); \
         break;                                                        \
       case COL:                                                       \
         qsort(((MAT_PTR)->data.data), MATRIX_ELEM_NUM((MAT_PTR)),     \
-              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, col_first)); \
+              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, COL)); \
         break;                                                        \
       case VAL:                                                       \
         qsort(((MAT_PTR)->data.data), MATRIX_ELEM_NUM((MAT_PTR)),     \
-              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, val));       \
+              sizeof(MAT_ELEM(TYPE)), MAT_ELEM_CMP(TYPE, VAL));       \
         break;                                                        \
       default:                                                        \
         break;                                                        \

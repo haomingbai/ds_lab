@@ -14,6 +14,9 @@
 #define REMOVE_NODE_FROM_LIST(LIST_PTR, NODE_PTR) \
   (((LIST_PTR)->size--), _remove_Node_without_changing_size(NODE_PTR));
 
+#define RELEASE_NODE(NODE_TYPE, MEMBER, NODE_PTR) \
+  free(CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR))
+
 #define REMOVE_AND_RELEASE(NODE_TYPE, MEMBER, LIST_PTR, NODE_PTR) \
   do {                                                            \
     intrusive_node *_NODE_TO_DEL = NODE_PTR;                      \
@@ -228,24 +231,24 @@ int char_node_cmp(const intrusive_node *node1, const intrusive_node *node2) {
          CONTAINER_OF(char_node, node, node2)->dat;
 }
 
-int main(void) {
-  setbuf(stdout, NULL);
-  circular_linked_list lst;
-  INIT_LINKED_LIST(circular_linked_list, &lst);
-  for (char i = 'z'; i >= 'a'; i--) {
-    intrusive_node *node = MAKE_NODE(char_node, node);
-    CONTAINER_OF(char_node, node, node)->dat = i;
-    INSERT_IN_FRONT_OF(&lst, lst.head, node);
-  }
-  linked_list_sort(lst.head, lst.head, char_node_cmp);
-
-  intrusive_node *currentNode = lst.head->next;
-  while (currentNode != lst.head) {
-    putchar(CONTAINER_OF(char_node, node, currentNode)->dat);
-    currentNode = currentNode->next;
-  }
-  putchar('\n');
-}
+// int main(void) {
+//   setbuf(stdout, NULL);
+//   circular_linked_list lst;
+//   INIT_LINKED_LIST(circular_linked_list, &lst);
+//   for (char i = 'z'; i >= 'a'; i--) {
+//     intrusive_node *node = MAKE_NODE(char_node, node);
+//     CONTAINER_OF(char_node, node, node)->dat = i;
+//     INSERT_IN_FRONT_OF(&lst, lst.head, node);
+//   }
+//   linked_list_sort(lst.head, lst.head, char_node_cmp);
+// 
+//   intrusive_node *currentNode = lst.head->next;
+//   while (currentNode != lst.head) {
+//     putchar(CONTAINER_OF(char_node, node, currentNode)->dat);
+//     currentNode = currentNode->next;
+//   }
+//   putchar('\n');
+// }
 
 // int main() {
 //   doubly_linked_list dlist;

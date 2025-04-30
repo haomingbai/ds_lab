@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -127,56 +128,10 @@ void *__alloc_with_offset(size_t size, size_t offset) {
 #define FREE_BINARY_NODE(NODE_TYPE, MEMBER, NODE_PTR) \
   (free(CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR)))
 
-void binary_node_traverse(binary_node *node, void (*func)(binary_node *),
-                          enum traverse_order order) {
-  switch (order) {
-    case PRE:
-      func(node);
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      break;
-    case POST:
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      func(node);
-      break;
-    case IN:
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      func(node);
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      break;
-  }
-}
-
-void binary_tree_traverse(binary_tree *tree, void (*func)(binary_node *),
-                          enum traverse_order order) {
-  if (tree->root == NULL) {
-    return;
-  } else {
-    binary_node_traverse(tree->root, func, order);
-  }
-}
-
 void binary_node_switch_order(binary_node *node) {
   binary_node *tmp = node->child[LEFT];
   node->child[LEFT] = node->child[RIGHT];
   node->child[RIGHT] = tmp;
-}
-
-void binary_tree_reverse(binary_tree *tree) {
-  binary_tree_traverse(tree, binary_node_switch_order, POST);
 }
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -352,194 +307,46 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
   }
 }
 
-binary_node *binary_node_find_lowest_ancestor(binary_node *root,
-                                              binary_node *node1,
-                                              binary_node *node2) {
-  if (root == NULL) {
-    return NULL;
-  } else if (root == node1 || root == node2) {
-    return root;
+void binary_node_traverse(binary_node *node, void (*func)(binary_node *),
+                          enum traverse_order order) {
+  switch (order) {
+    case PRE:
+      func(node);
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      break;
+    case POST:
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      func(node);
+      break;
+    case IN:
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      func(node);
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      break;
+  }
+}
+
+void binary_tree_traverse(binary_tree *tree, void (*func)(binary_node *),
+                          enum traverse_order order) {
+  if (tree->root == NULL) {
+    return;
   } else {
-    binary_node *left = binary_node_find_lowest_ancestor(root->child[LEFT],
-                                                         node1, node2),
-                *right = binary_node_find_lowest_ancestor(root->child[RIGHT],
-                                                          node1, node2);
-    if (left && right) {
-      return root;
-    } else {
-      if (left) {
-        return left;
-      } else if (right) {
-        return right;
-      } else {
-        assert(0);
-      }
-    }
+    binary_node_traverse(tree->root, func, order);
   }
-}
-
-binary_node *binary_tree_find_lowest_ancestor(binary_tree *tree,
-                                              binary_node *node1,
-                                              binary_node *node2) {
-  assert(binary_tree_gen_size(tree) >= 2);
-  return binary_node_find_lowest_ancestor(tree->root, node1, node2);
-}
-
-#ifdef ENABLE_QUEUE
-
-#include "./linked_list.c"
-
-void binary_node_level_order(binary_node *root, void (*func)(binary_node *)) {
-  typedef struct {
-    binary_node *target;
-    intrusive_node node;
-  } bfs_node;
-  linked_queue queue;
-  init_linked_queue(&queue);
-  intrusive_node *nRoot = MAKE_NODE(bfs_node, node);
-  CONTAINER_OF(bfs_node, node, nRoot)->target = root;
-  linked_queue_push(&queue, nRoot);
-  nRoot = NULL;
-  while (!linked_queue_empty(&queue)) {
-    intrusive_node *node_to_proc = linked_queue_pop(&queue);
-
-    func(CONTAINER_OF(bfs_node, node, node_to_proc)->target);
-    if (CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[LEFT] !=
-        NULL) {
-      intrusive_node *nNode = MAKE_NODE(bfs_node, node);
-      CONTAINER_OF(bfs_node, node, nNode)->target =
-          CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[LEFT];
-      linked_queue_push(&queue, nNode);
-    }
-    if (CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[RIGHT] !=
-        NULL) {
-      intrusive_node *nNode = MAKE_NODE(bfs_node, node);
-      CONTAINER_OF(bfs_node, node, nNode)->target =
-          CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[RIGHT];
-      linked_queue_push(&queue, nNode);
-    }
-    RELEASE_NODE(bfs_node, node, node_to_proc);
-  }
-}
-
-#endif
-
-binary_node *construct_binary_tree(binary_node **node_list_mid,
-                                   binary_node **node_list, size_t len,
-                                   enum traverse_order seq) {
-  switch (seq) {
-    case PRE: {
-      if (len < 1) {
-        return NULL;
-      }
-      binary_node *root = node_list[0];
-      if (len == 1) {
-        root->child[LEFT] = NULL;
-        root->child[RIGHT] = NULL;
-        return root;
-      }
-      size_t pos;
-      for (pos = 0; pos < len; pos++) {
-        if (node_list_mid[pos] == root) {
-          break;
-        }
-      }
-      root->child[LEFT] =
-          construct_binary_tree(node_list_mid, node_list + 1, pos, seq);
-      root->child[RIGHT] = construct_binary_tree(
-          node_list_mid + pos + 1, node_list + pos + 1, len - pos - 1, seq);
-      return root;
-    }
-    case POST: {
-      if (len < 1) {
-        return NULL;
-      }
-      binary_node *root = node_list[len - 1];
-      if (len == 1) {
-        root->child[LEFT] = NULL;
-        root->child[RIGHT] = NULL;
-        return root;
-      }
-      size_t pos;
-      for (pos = 0; pos < len; pos++) {
-        if (node_list_mid[pos] == root) {
-          break;
-        }
-      }
-      root->child[LEFT] =
-          construct_binary_tree(node_list_mid, node_list, pos, seq);
-      root->child[RIGHT] = construct_binary_tree(
-          node_list_mid + pos + 1, node_list + pos, len - pos - 1, seq);
-      return root;
-    }
-    case IN: {
-      assert(0);
-    }
-    default: {
-      assert(0);
-    }
-  }
-}
-
-struct _internal_node_pair {
-  binary_node *first, *second;
-};
-
-static inline struct _internal_node_pair _bst_small_big(
-    binary_node *root, int (*cmp)(const binary_node *, const binary_node *)) {
-  struct _internal_node_pair res = {NULL, NULL};
-  if (root == NULL) {
-    return (struct _internal_node_pair){.first = NULL, .second = NULL};
-  }
-
-  if (root->child[LEFT]) {
-    struct _internal_node_pair left_pair =
-        _bst_small_big(root->child[LEFT], cmp);
-    if (left_pair.first == NULL || left_pair.second == NULL) {
-      return (struct _internal_node_pair){.first = NULL, .second = NULL};
-    } else if (cmp(left_pair.second, root) >= 0) {
-      return (struct _internal_node_pair){NULL, NULL};
-    } else {
-      res.first = left_pair.first;
-    }
-  } else {
-    res.first = root;
-  }
-
-  if (root->child[RIGHT]) {
-    struct _internal_node_pair right_pair =
-        _bst_small_big(root->child[RIGHT], cmp);
-    if (right_pair.first == NULL || right_pair.second == NULL) {
-      return (struct _internal_node_pair){NULL, NULL};
-    } else if (cmp(root, right_pair.first) >= 0) {
-      return (struct _internal_node_pair){NULL, NULL};
-    } else {
-      res.second = right_pair.second;
-    }
-  } else {
-    res.second = root;
-  }
-
-  return res;
-}
-
-bool binary_node_is_bst_root(binary_node *root,
-                             int (*cmp)(const binary_node *,
-                                        const binary_node *)) {
-  if (root == NULL) {
-    return true;
-  }
-
-  struct _internal_node_pair node = _bst_small_big(root, cmp);
-  if (node.first == NULL || node.second == NULL) {
-    return false;
-  }
-  return true;
-}
-
-bool binary_tree_is_bst(binary_tree *tree,
-                        int (*cmp)(const binary_node *, const binary_node *)) {
-  return binary_node_is_bst_root(tree->root, cmp);
 }
 
 typedef binary_tree bst;
@@ -606,7 +413,7 @@ bst_node *bst_find(bst *tree, bst_node *node,
   return curr;
 }
 
-// Be careful to use this func...
+// Be careful to use
 bst_node *bst_remove(bst *tree, bst_node *node,
                      int (*cmp)(const bst_node *, const bst_node *)) {
   bst_node *node_to_remove = bst_find(tree, node, cmp);
@@ -1052,197 +859,356 @@ binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
   return to_remove;
 }
 
-// Test code
+#define MAX_OF(A, B) (((A) < (B)) ? (B) : (A))
 
-// Case 1: Insert and delete
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 插入节点 10, 5, 15
-//     binary_node *b1 = MAKE_BINARY_NODE(Node, node); Node *n1 =
-//     CONTAINER_OF(Node, node, b1); n1->key = 10; rb_tree_insert(&tree, b1,
-//     cmp); binary_node *b2 = MAKE_BINARY_NODE(Node, node); Node *n2 =
-//     CONTAINER_OF(Node, node, b2); n2->key = 5; rb_tree_insert(&tree, b2,
-//     cmp); binary_node *b3 = MAKE_BINARY_NODE(Node, node); Node *n3 =
-//     CONTAINER_OF(Node, node, b3); n3->key = 15; rb_tree_insert(&tree, b3,
-//     cmp); printf("插入后中序: "); binary_tree_traverse(&tree, print_inorder,
-//     IN); printf("\n");
-//     // 删除节点 5
-//     Node temp; temp.key = 5; binary_node *removed = rb_tree_remove(&tree,
-//     &temp.node, cmp); if (removed) FREE_BINARY_NODE(Node, node, removed);
-//     printf("删除后中序: ");
-//     binary_tree_traverse(&tree, print_inorder, IN);
-//     printf("\n");
-//     return 0;
-// }
+typedef struct sequence_list {
+  void *data;
+  size_t size;
+  size_t capacity;
+} sequence_list;
 
-// Case 2: rotate
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_preorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_preorder(n->child[0]);
-//     print_preorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 插入节点 1, 2, 3（单侧插入引发平衡操作）
-//     Node *n1 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n1->key = 1; rb_tree_insert(&tree, &n1->node, cmp); Node *n2 =
-//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n2->key = 2;
-//     rb_tree_insert(&tree, &n2->node, cmp);
-//     Node *n3 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n3->key = 3; rb_tree_insert(&tree, &n3->node, cmp); printf("插入 1,2,3
-//     后先序: "); print_preorder(tree.root); printf("\n"); return 0;
-// }
+size_t sequence_list_size(sequence_list *lst) { return lst->size; }
 
-// Case 3: rotate in different direction
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_preorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_preorder(n->child[0]);
-//     print_preorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 插入节点 1, 3, 2（交叉插入引发双旋）
-//     Node *n1 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n1->key = 1; rb_tree_insert(&tree, &n1->node, cmp); Node *n3 =
-//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n3->key = 3;
-//     rb_tree_insert(&tree, &n3->node, cmp);
-//     Node *n2 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n2->key = 2; rb_tree_insert(&tree, &n2->node, cmp); printf("插入 1,3,2
-//     后先序: "); print_preorder(tree.root); printf("\n"); return 0;
-// }
+#define INIT_SEQUENCE_LIST(TYPE, LIST_PTR) \
+  do {                                     \
+    void *dat = malloc(sizeof(TYPE));      \
+    if (dat == NULL) {                     \
+      perror("Fail to init the list.");    \
+    } else {                               \
+      ((LIST_PTR)->capacity) = 1;          \
+      ((LIST_PTR)->size) = 0;              \
+      ((LIST_PTR)->data) = dat;            \
+    }                                      \
+  } while (0)
 
-// Case 4: insert continuously
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     print_inorder(n->child[0]);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_inorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 连续插入 1 到 7
-//     for (int i = 1; i <= 7; i++) {
-//         Node *node = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//         node->key = i;
-//         rb_tree_insert(&tree, &node->node, cmp);
-//     }
-//     printf("连续插入 1..7 后中序: ");
-//     print_inorder(tree.root);
-//     printf("\n");
-//     return 0;
-// }
+#define SEQUENCE_LIST_PUSH_BACK(TYPE, LIST_PTR, VAL)                  \
+  do {                                                                \
+    bool flag = true;                                                 \
+    if (((LIST_PTR)->size) == ((LIST_PTR)->capacity)) {               \
+      size_t new_capacity =                                           \
+          MAX_OF(((LIST_PTR)->size) + 1, ((LIST_PTR)->capacity) * 2); \
+      void *new_data =                                                \
+          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE));   \
+      if (new_data == NULL) {                                         \
+        perror("Fail to alloc extra memory, rollback...");            \
+        flag = false;                                                 \
+      } else {                                                        \
+        ((LIST_PTR)->data) = new_data;                                \
+        ((LIST_PTR)->capacity) = new_capacity;                        \
+      }                                                               \
+    }                                                                 \
+    if (flag) {                                                       \
+      ((TYPE *)((LIST_PTR)->data))[((LIST_PTR)->size)] = (TYPE)(VAL); \
+      ((LIST_PTR)->size)++;                                           \
+    }                                                                 \
+  } while (0)
 
-// Case 5: remove root, not passed
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     print_inorder(n->child[0]);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_inorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 构造三节点树并删除根节点
-//     Node *n10 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n10->key = 10; rb_tree_insert(&tree, &n10->node, cmp); Node *n5 =
-//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n5->key = 5;
-//     rb_tree_insert(&tree, &n5->node, cmp);
-//     Node *n15 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n15->key = 15; rb_tree_insert(&tree, &n15->node, cmp);
-//     printf("删除前中序: ");
-//     print_inorder(tree.root);
-//     printf("\n");
-//     // 删除根节点 10
-//     Node temp; temp.key = 10;
-//     binary_node *removed = rb_tree_remove(&tree, &temp.node, cmp);
-//     if (removed) FREE_BINARY_NODE(Node, node, removed);
-//     printf("删除 10 后中序: ");
-//     print_inorder(tree.root);
-//     printf("\n");
-//     return 0;
-// }
+#define SEQUENCE_LIST_REFERENCE(TYPE, LIST_PTR, POSITION) \
+  (((TYPE *)((LIST_PTR)->data))[(POSITION) % ((LIST_PTR)->size)])
 
-// Case 6: remove and rotate.
-// typedef struct Node {
-//   binary_node node;
-//   int key;
-// } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//   const Node *pa = CONTAINER_OF(Node, node, a);
-//   const Node *pb = CONTAINER_OF(Node, node, b);
-//   return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//   if (!n) return;
-//   const Node *p = CONTAINER_OF(Node, node, n);
-//   print_inorder(n->child[0]);
-//   printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//   print_inorder(n->child[1]);
-// }
-// int main() {
-//   rb_tree tree;
-//   init_rb_tree(&tree);
-//   // 构造较复杂的树：插入 10, 5, 2, 7
-//   int keys[] = {10, 5, 2, 7};
-//   for (int i = 0; i < 4; i++) {
-//     Node *node = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     node->key = keys[i];
-//     rb_tree_insert(&tree, &node->node, cmp);
-//   }
-//   printf("删除前中序: ");
-//   print_inorder(tree.root);
-//   printf("\n");
-//   // 删除节点 5（有两个子节点）
-//   Node temp;
-//   temp.key = 5;
-//   binary_node *removed = rb_tree_remove(&tree, &temp.node, cmp);
-//   if (removed) FREE_BINARY_NODE(Node, node, removed);
-//   printf("删除 5 后中序: ");
-//   print_inorder(tree.root);
-//   printf("\n");
-//   return 0;
-// }
+#define SEQUENCE_LIST_AT(TYPE, LIST_PTR, POSITION) \
+  (((TYPE *)((LIST_PTR)->data)) + (POSITION))
+
+#define SEQUENCE_LIST_POP_BACK(TYPE, LIST_PTR)                      \
+  do {                                                              \
+    ((LIST_PTR)->size)--;                                           \
+    if (((LIST_PTR)->capacity) > (((LIST_PTR)->size) * 4 + 1)) {    \
+      size_t new_capacity = MAX_OF(((LIST_PTR)->size) * 4 + 1, 1);  \
+      void *new_data =                                              \
+          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
+      if (new_data == NULL) {                                       \
+        perror("Fail to alloc new memory, continue...");            \
+      } else {                                                      \
+        ((LIST_PTR)->data) = new_data;                              \
+        ((LIST_PTR)->capacity) = new_capacity;                      \
+      }                                                             \
+    }                                                               \
+  } while (0)
+
+#define SEQUENCE_LIST_INSERT(TYPE, LIST_PTR, POS, VAL)                        \
+  do {                                                                        \
+    bool flag = true;                                                         \
+    size_t old_size = (LIST_PTR)->size;                                       \
+    size_t new_size = ((LIST_PTR)->size) + 1;                                 \
+    if (new_size > ((LIST_PTR)->capacity)) {                                  \
+      size_t new_capacity = MAX_OF((((LIST_PTR)->capacity) * 2), (new_size)); \
+      void *new_data =                                                        \
+          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE));           \
+      if (new_data == NULL) {                                                 \
+        perror("Fail to alloc new memory, rollback...");                      \
+        flag = false;                                                         \
+      } else {                                                                \
+        ((LIST_PTR)->data) = new_data;                                        \
+        ((LIST_PTR)->capacity) = new_capacity;                                \
+      }                                                                       \
+    }                                                                         \
+    if (flag) {                                                               \
+      ((LIST_PTR)->size) = new_size;                                          \
+      TYPE *data = ((TYPE *)((LIST_PTR)->data));                              \
+      memmove((void *)((TYPE *)(data) + ((POS) + 1)),                         \
+              ((void *)((TYPE *)(data) + (POS))), ((old_size) - (POS)));      \
+      data[(POS)] = (VAL);                                                    \
+    }                                                                         \
+  } while (0)
+
+#define SEQUENCE_LIST_REMOVE(TYPE, LIST_PTR, POS)                   \
+  do {                                                              \
+    memmove(((void *)(((TYPE *)((LIST_PTR)->data)) + (POS))),       \
+            ((void *)(((TYPE *)((LIST_PTR)->data) + (POS) + 1))),   \
+            (((LIST_PTR)->size) - 1 - (POS)));                      \
+    ((LIST_PTR)->size)--;                                           \
+    if (((LIST_PTR)->capacity) > (((LIST_PTR)->size) * 4 + 1)) {    \
+      size_t new_capacity = MAX_OF(((LIST_PTR)->size) * 4 + 1, 1);  \
+      void *new_data =                                              \
+          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
+      if (new_data == NULL) {                                       \
+        perror("Fail to alloc new memory, continue...");            \
+      } else {                                                      \
+        ((LIST_PTR)->data) = new_data;                              \
+        ((LIST_PTR)->capacity) = new_capacity;                      \
+      }                                                             \
+    }                                                               \
+  } while (0)
+
+#define SEQUENCE_LIST_RESERVE(TYPE, LIST_PTR, NEW_SIZE)                        \
+  do {                                                                         \
+    size_t new_capacity = (NEW_SIZE);                                          \
+    void *new_data = realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
+    if (new_data == NULL) {                                                    \
+      perror("Fail to alloc new memory, rollback...");                         \
+    } else {                                                                   \
+      ((LIST_PTR)->data) = new_data;                                           \
+      ((LIST_PTR)->capacity) = new_capacity;                                   \
+    }                                                                          \
+  } while (0)
+
+#define SEQUENCE_LIST_RESIZE(TYPE, LIST_PTR, NEW_SIZE)              \
+  do {                                                              \
+    bool flag = true;                                               \
+    if ((NEW_SIZE) >= ((LIST_PTR)->capacity)) {                     \
+      size_t new_capacity =                                         \
+          MAX_OF((NEW_SIZE) + 1, ((LIST_PTR)->capacity) * 2);       \
+      void *new_data =                                              \
+          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
+      if (new_data == NULL) {                                       \
+        perror("Fail to alloc extra memory, rollback...");          \
+        flag = false;                                               \
+      } else {                                                      \
+        ((LIST_PTR)->data) = new_data;                              \
+        ((LIST_PTR)->capacity) = new_capacity;                      \
+      }                                                             \
+    }                                                               \
+    if (flag) {                                                     \
+      ((LIST_PTR)->size) = (NEW_SIZE);                              \
+    }                                                               \
+  } while (0)
+
+#define SEQUENCE_LIST_SHRINK(TYPE, LIST_PTR)                                   \
+  do {                                                                         \
+    size_t new_capacity = MAX_OF(((LIST_PTR)->size), 1);                       \
+    void *new_data = realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
+    if (new_data == NULL) {                                                    \
+      perror("Fail to alloc new memory, continue...");                         \
+    } else {                                                                   \
+      ((LIST_PTR)->data) = new_data;                                           \
+      ((LIST_PTR)->capacity) = new_capacity;                                   \
+    }                                                                          \
+  } while (0)
+
+void destroy_sequence_list(sequence_list *lst) {
+  free(lst->data);
+  lst->capacity = 0;
+  lst->size = 0;
+}
+
+bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
+
+// Sequence stack
+
+typedef sequence_list sequence_stack;
+
+#define INIT_SEQUENCE_STACK(TYPE, STACK_PTR) INIT_SEQUENCE_LIST(TYPE, STACK_PTR)
+
+#define SEQUENCE_STACK_PUSH(TYPE, STACK_PTR, VAL) \
+  SEQUENCE_LIST_PUSH_BACK(TYPE, STACK_PTR, VAL)
+
+#define SEQUENCE_STACK_TOP(TYPE, STACK_PTR) \
+  SEQUENCE_LIST_REFERENCE(TYPE, STACK_PTR, (((STACK_PTR)->size) - 1))
+
+#define SEQUENCE_STACK_POP(TYPE, STACK_PTR) \
+  SEQUENCE_LIST_POP_BACK(TYPE, STACK_PTR)
+
+void destroy_sequence_stack(sequence_stack *stack) {
+  destroy_sequence_list(stack);
+}
+
+bool sequence_stack_empty(sequence_stack *stack) {
+  return sequence_list_empty(stack);
+}
+
+// Algorithm
+
+typedef struct encoder {
+  char c;
+  // node_in_huffman points to the `huff` member in huffman_node
+  binary_node *node_in_huffman;
+  char *code;
+  binary_node node;
+} encoder;
+
+int encoder_cmp(const binary_node *node1, const binary_node *node2) {
+  encoder *e1 = CONTAINER_OF(encoder, node, node1),
+          *e2 = CONTAINER_OF(encoder, node, node2);
+  if (e1->c < e2->c) {
+    return -1;
+  } else if (e1->c == e2->c) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+typedef struct huffman_node {
+  size_t weight;
+  binary_node huff;
+  binary_node node;
+} huffman_node;
+
+int huff_cmp(const binary_node *n1, const binary_node *n2) {
+  huffman_node *h1 = CONTAINER_OF(huffman_node, node, n1),
+               *h2 = CONTAINER_OF(huffman_node, node, n2);
+  if (h1->weight < h2->weight) {
+    return -1;
+  } else if (h1->weight == h2->weight) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+static inline void set_huff(binary_node *n1) {
+  binary_node *h1 = &CONTAINER_OF(huffman_node, node, n1)->huff;
+  h1->parent = NULL;
+  h1->child[LEFT] = NULL;
+  h1->child[RIGHT] = NULL;
+}
+
+void construct_huffman_tree(binary_tree *target, rb_tree *current_heap) {
+  binary_tree_traverse(current_heap, set_huff, IN);
+  while (current_heap->size > 1) {
+    binary_node *node1 = bst_get_smallest(current_heap);
+    rb_tree_remove(current_heap, node1, huff_cmp);
+    binary_node *node2 = bst_get_smallest(current_heap);
+    rb_tree_remove(current_heap, node2, huff_cmp);
+    binary_node *new_node = MAKE_BINARY_NODE(huffman_node, node);
+    binary_node *huff1 = &CONTAINER_OF(huffman_node, node, node1)->huff,
+                *huff2 = &CONTAINER_OF(huffman_node, node, node2)->huff,
+                *huff_p = &CONTAINER_OF(huffman_node, node, new_node)->huff;
+    huff_p->child[LEFT] = huff1, huff_p->child[RIGHT] = huff2,
+    huff1->parent = huff_p, huff2->parent = huff_p;
+    CONTAINER_OF(huffman_node, huff, huff_p)->weight =
+        CONTAINER_OF(huffman_node, huff, huff1)->weight +
+        CONTAINER_OF(huffman_node, huff, huff2)->weight;
+    rb_tree_insert(current_heap, new_node, huff_cmp);
+  }
+  target->root = &CONTAINER_OF(huffman_node, node, current_heap->root)->huff;
+}
+
+void gen_encoder(rb_tree *encoders, binary_tree *huffman_tree) {
+  void set_encoder(binary_node * cnode) {
+    sequence_stack st;
+    INIT_SEQUENCE_STACK(char, &st);
+    size_t cnt = 0;
+    encoder *e = CONTAINER_OF(encoder, node, cnode);
+    binary_node *hnode = e->node_in_huffman;
+    while (hnode != huffman_tree->root) {
+      cnt++;
+      binary_node *parent = hnode->parent;
+      if (hnode == parent->child[LEFT]) {
+        SEQUENCE_STACK_PUSH(char, &st, '0');
+      } else if (hnode == parent->child[RIGHT]) {
+        SEQUENCE_STACK_PUSH(char, &st, '1');
+      }
+      hnode = parent;
+    }
+    char *res = malloc(cnt + 1);
+    size_t i = 0;
+    while (!sequence_stack_empty(&st)) {
+      res[i] = SEQUENCE_STACK_TOP(char, &st);
+      SEQUENCE_STACK_POP(char, &st);
+      i++;
+    }
+    res[i] = 0;
+    e->code = res;
+    destroy_sequence_stack(&st);
+  }
+  binary_tree_traverse(encoders, set_encoder, IN);
+}
+
+char *get_code(rb_tree *encoders, char c) {
+  encoder coder;
+  coder.c = c;
+  binary_node *n = rb_tree_find_node(encoders, &coder.node, encoder_cmp);
+  return CONTAINER_OF(encoder, node, n)->code;
+}
+
+static inline void free_encoder(binary_node *n) {
+  if (n) {
+    assert(CONTAINER_OF(encoder, node, n)->code);
+    free(CONTAINER_OF(encoder, node, n)->code);
+    CONTAINER_OF(encoder, node, n)->code = NULL;
+  }
+}
+
+char *release_resources(binary_tree *encoders, binary_tree *huff) {
+  DESTROY_BINARY_TREE(huffman_node, huff, huff);
+  binary_tree_traverse(encoders, free_encoder, IN);
+  DESTROY_BINARY_TREE(encoder, node, encoders);
+}
+
+int main(void) {
+  size_t num_char;
+  scanf("%lu", &num_char);
+  rb_tree char_tree, weight_heap;
+  init_rb_tree(&char_tree);
+  init_rb_tree(&weight_heap);
+  binary_node *encoders[num_char];
+  for (size_t i = 0; i < num_char; i++) {
+    binary_node *to_ins = MAKE_BINARY_NODE(encoder, node);
+    char c;
+    do {
+      scanf("%c", &c);
+    } while (isspace(c));
+    CONTAINER_OF(encoder, node, to_ins)->c = c;
+    rb_tree_insert(&char_tree, to_ins, encoder_cmp);
+    encoders[i] = to_ins;
+  }
+  for (size_t i = 0; i < num_char; i++) {
+    binary_node *to_proc = encoders[i];
+    CONTAINER_OF(encoder, node, to_proc)->node_in_huffman =
+        MAKE_BINARY_NODE(huffman_node, huff);
+    binary_node *node_in_heap =
+        &CONTAINER_OF(huffman_node, huff,
+                      CONTAINER_OF(encoder, node, to_proc)->node_in_huffman)
+             ->node;
+    size_t weight;
+    scanf("%lu", &weight);
+    CONTAINER_OF(huffman_node, node, node_in_heap)->weight = weight;
+    rb_tree_insert(&weight_heap, node_in_heap, huff_cmp);
+  }
+  binary_tree huffman;
+  init_binary_tree(&huffman);
+  construct_huffman_tree(&huffman, &weight_heap);
+  gen_encoder(&char_tree, &huffman);
+  char str[101];
+  scanf("%s", str);
+  size_t len = strlen(str);
+  for (size_t i = 0; i < len; i++) {
+    char c = str[i];
+    char *code = get_code(&char_tree, c);
+    printf("%s", code);
+  }
+  putchar('\n');
+  printf("%s\n", str);
+  release_resources(&char_tree, &huffman);
+}

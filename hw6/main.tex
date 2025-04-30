@@ -1,0 +1,82 @@
+\documentclass{article}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{myorange}{rgb}{0.9,0.4,0}
+\definecolor{mybackground}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{myCstyle}{
+	backgroundcolor=\color{mybackground},
+	commentstyle=\color{mygreen},
+	keywordstyle=\color{blue},
+	numberstyle=\tiny\color{mygray},
+	stringstyle=\color{myorange},
+	basicstyle=\ttfamily\footnotesize,
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=left,
+	numbersep=5pt,
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=2,
+	language=C
+}
+
+\lstdefinestyle{myCPPstyle}{
+	backgroundcolor=\color{mybackground},
+	commentstyle=\color{mygreen},
+	keywordstyle=\color{blue},
+	numberstyle=\tiny\color{mygray},
+	stringstyle=\color{myorange},
+	basicstyle=\ttfamily\footnotesize,
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=left,
+	numbersep=5pt,
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=2,
+	language=C++
+}
+
+\title{Data Structure, HW6}
+
+\author{Haoming Bai, 2023301350}
+
+\begin{document}
+	\maketitle
+	\section*{Problem 1}
+	For this problem, when reversing a string, we can just reverse the two characters on both side of the string and then reverse the string which has excluded the both sides.
+	\lstinputlisting[style=myCstyle, caption={Problem 1: solution}]{./a.c}
+	\section*{Problem 2}
+	In this problem, if we want to find out the the last occurance of a character in a string, we can first check the last letter of the string and judge if it is the target character. If it is, then we can just return the index and if not, then we can find the string of length $n-1$ in which n is the length of the string. When the length of the string becomes zero, indicating that there is no character available for the searching, then return $-1$.
+  \lstinputlisting[style=myCstyle, caption={Problem 2: solution}]{./b.c}
+  \section*{Problem 3}
+  In this section, when intending to find the max occurance of a certain letter in a string, we can use the iterator in C++ and use recursion. We can first find the head and the end iterator. If the head equals to the end, then return zero. If not, we can compare the target with the string pointed by the  `begin` iter and then move the begin iterator forward. If the result is `true`, then the result can become the successor of the result of the same process from the successor of begin to end.
+  \lstinputlisting[style=myCppstyle, caption={Problem 3: solution}]{./c.cpp}
+  \section*{Problem 4}
+  Same as problem 3, but move the iterator to the end of the string if matched.
+  \lstinputlisting[style=myCppstyle, caption={Problem 4: solution}]{./d.cpp}
+  \section*{Problem 5}
+  Divide and conquer, same as merge sort, but more simple.
+  \lstinputlisting[style=myCppstyle, caption={Problem 5: solution}]{./e.cpp}
+  \section*{Problem 6}
+  Find the index of the first occurence of a value in a forward list. Check the first iterator and then move to the next iterator. If found, then exit. If the iterator becomes null, then returns -1.
+  \lstinputlisting[style=myCstyle, caption={Problem 6: solution}]{./f.c}
+  \section*{Problem 7}
+  Find the max node and min node of a forward list.
+  \lstinputlisting[style=myCstyle, caption={Problem 7: solution}]{./g.c}
+  \section*{Problem 8, 9}
+  Note that the first node might be deleted.
+  \lstinputlisting[style=myCstyle, caption={Problem 8: solution}]{./h.c}
+  \lstinputlisting[style=myCstyle, caption={Problem 8: solution}]{./i.c}
+\end{document}
