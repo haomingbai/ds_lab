@@ -1,36 +1,6 @@
-#include "./framework.c"
-
-// Construct a struct of the node.
-typedef struct {
-  char dat;
-  binary_node node;
-} cnode_t;
-
-void construct_btree_local(binary_tree *tree) {
-  init_binary_tree(tree);
-  binary_node *root = MAKE_BINARY_NODE(cnode_t, node);
-  binary_tree_insert(tree, NULL, root, LEFT);
-  __auto_type it = root;
-  for (size_t i = 0; i < 10; i++) {
-    __auto_type node = MAKE_BINARY_NODE(cnode_t, node);
-    binary_tree_insert(tree, it, node, LEFT);
-    it = node;
-  }
-  it = root;
-  for (size_t i = 0; i < 10; i++) {
-    __auto_type node = MAKE_BINARY_NODE(cnode_t, node);
-    binary_tree_insert(tree, it, node, RIGHT);
-    it = node;
-  }
-}
-
-// Sequence list
-
-#ifndef SEQUENCE_LIST_H__
-#define SEQUENCE_LIST_H__
-
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -199,61 +169,6 @@ void destroy_sequence_list(sequence_list *lst) {
 
 bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
 
-// Sqeuence queue
-
-typedef struct sequence_queue {
-  size_t begin_pos;
-  size_t end_pos;
-  sequence_list lst;
-} sequence_queue;
-
-#define INIT_SEQUENCE_QUEUE(TYPE, Q_PTR, CAPACITY)           \
-  do {                                                       \
-    INIT_SEQUENCE_LIST(TYPE, (&((Q_PTR)->lst)));             \
-    SEQUENCE_LIST_RESIZE(TYPE, (&((Q_PTR)->lst)), CAPACITY); \
-    ((Q_PTR)->begin_pos) = 0;                                \
-    ((Q_PTR)->end_pos) = 0;                                  \
-  } while (0)
-
-bool sequence_queue_empty(sequence_queue *queue) {
-  return queue->begin_pos == queue->end_pos;
-}
-
-bool sequence_queue_full(sequence_queue *queue) {
-  return (queue->end_pos - queue->begin_pos) >= queue->lst.size;
-}
-
-#define SEQUENCE_QUEUE_PUSH(TYPE, Q_PTR, VAL)                                  \
-  do {                                                                         \
-    if (!sequence_queue_full((Q_PTR))) {                                       \
-      SEQUENCE_LIST_REFERENCE(TYPE, (&((Q_PTR)->lst)), (((Q_PTR)->end_pos))) = \
-          (VAL);                                                               \
-      ((Q_PTR)->end_pos)++;                                                    \
-    } else {                                                                   \
-      perror("The queue is full, giving up...");                               \
-    }                                                                          \
-  } while (0)
-
-void sequence_queue_pop(sequence_queue *queue) {
-  if (!sequence_queue_empty(queue)) {
-    (queue->begin_pos)++;
-    if (queue->begin_pos >= queue->lst.size) {
-      queue->begin_pos -= queue->lst.size;
-      queue->end_pos -= queue->lst.size;
-    }
-  } else {
-    perror("The queue is already empty, giving up...");
-  }
-}
-#define SEQUENCE_QUEUE_FRONT(TYPE, Q_PTR) \
-  SEQUENCE_LIST_REFERENCE(TYPE, (&((Q_PTR)->lst)), ((Q_PTR)->begin_pos))
-
-void destroy_sequence_queue(sequence_queue *queue) {
-  destroy_sequence_list(&queue->lst);
-  queue->begin_pos = 0;
-  queue->end_pos = 0;
-}
-
 // Sequence stack
 
 typedef sequence_list sequence_stack;
@@ -277,84 +192,89 @@ bool sequence_stack_empty(sequence_stack *stack) {
   return sequence_list_empty(stack);
 }
 
-#endif
+typedef long data_type;
 
-// Module
-
-static inline bool isNotNull(binary_node *node) { return node ? true : false; }
-
-// 只判断树形是否对称
-bool process(binary_tree *tree) {
-  // 空树对称
-  if (tree->root == NULL) {
-    return true;
-  }
-  // 单节点树对称
-  if (!tree->root->child[LEFT] && !tree->root->child[RIGHT]) {
-    return true;
-  }
-  // 单分支树不对称
-  if (!tree->root->child[LEFT] || !tree->root->child[RIGHT]) {
-    return false;
-  }
-
-  // 通过栈模拟递归, 如果入栈时间节点相同, 则树对称
-  // 左右两个子树遍历方向相反
-  __auto_type lRoot = tree->root->child[LEFT];
-  __auto_type rRoot = tree->root->child[RIGHT];
-  typedef binary_node *bNodePtr;
-  sequence_stack lStk, rStk;
-  INIT_SEQUENCE_STACK(bNodePtr, &lStk);
-  INIT_SEQUENCE_STACK(bNodePtr, &rStk);
-  bool res = true;
-
-  SEQUENCE_STACK_PUSH(bNodePtr, &lStk, lRoot);
-  SEQUENCE_STACK_PUSH(bNodePtr, &rStk, rRoot);
-
-  // 遍历
-  while (!sequence_stack_empty(&lStk)) {
-    // 如果有一边遍历提前结束, 则树不对称
-    if (sequence_stack_empty(&rStk)) {
-      res = false;
-      goto release;
-    }
-
-    // 获取栈顶节点
-    bNodePtr lNode = SEQUENCE_STACK_TOP(bNodePtr, &lStk);
-    SEQUENCE_STACK_POP(bNodePtr, &lStk);
-    bNodePtr rNode = SEQUENCE_STACK_TOP(bNodePtr, &rStk);
-    SEQUENCE_STACK_POP(bNodePtr, &rStk);
-
-    // 若有一个节点为空, 树不对称
-    if (isNotNull(lNode) ^ isNotNull(rNode)) {
-      res = false;
-      goto release;
-    }
-
-    // 如果左右都不为空, 按照相反顺序入栈
-    if (isNotNull(lNode)) {
-      SEQUENCE_STACK_PUSH(bNodePtr, &lStk, lNode->child[LEFT]);
-      SEQUENCE_STACK_PUSH(bNodePtr, &lStk, lNode->child[RIGHT]);
-      SEQUENCE_STACK_PUSH(bNodePtr, &rStk, rNode->child[RIGHT]);
-      SEQUENCE_STACK_PUSH(bNodePtr, &rStk, rNode->child[LEFT]);
+int floyd(const data_type **graph, size_t node_num, data_type **dist,
+          data_type inf, size_t **prevs) {
+  for (size_t i = 0; i < node_num; i++) {
+    for (size_t j = 0; j < node_num; j++) {
+      if (graph[i][j] != inf) {
+        dist[i][j] = graph[i][j];
+        if (i != j) {
+          prevs[i][j] = i;
+        } else {
+          prevs[i][j] = SIZE_MAX;
+        }
+        continue;
+      }
+      dist[i][j] = inf;
+      prevs[i][j] = SIZE_MAX;
     }
   }
-
-  // 如果有一边遍历提前结束, 则树不对称
-  if (!sequence_stack_empty(&rStk)) {
-    res = false;
-    goto release;
+  for (size_t from = 0; from < node_num; from++) {
+    for (size_t mid = 0; mid < node_num; mid++) {
+      for (size_t to = 0; to < node_num; to++) {
+        if (dist[from][mid] < inf && dist[mid][to] < inf &&
+            dist[mid][to] < inf - dist[from][mid] &&
+            dist[from][mid] + dist[mid][to] < dist[from][to]) {
+          dist[from][to] = dist[from][mid] + dist[mid][to];
+          if (prevs[mid][to] == SIZE_MAX) {
+            prevs[from][to] = mid;
+          } else {
+            prevs[from][to] = prevs[mid][to];
+          }
+        }
+      }
+    }
   }
-
-release:  // 资源释放
-  destroy_sequence_stack(&lStk);
-  destroy_sequence_stack(&rStk);
-  return res;
+  return 0;
 }
 
-int main(void) {
-  binary_tree tree;
-  construct_btree_local(&tree);
-  __auto_type r = process(&tree);
-  printf("%s\n", r ? "Is symmetric" : "Is not symmetric");
+int solve() {
+  size_t sz;
+  scanf("%lu", &sz);
+  data_type inf = 1e9;
+  data_type **graph = calloc(sz, sizeof(uintptr_t)),
+            **dist = calloc(sz, sizeof(uintptr_t));
+  size_t **prevs = calloc(sz, sizeof(uintptr_t));
+  for (size_t i = 0; i < sz; i++) {
+    graph[i] = calloc(sz, sizeof(data_type));
+    dist[i] = calloc(sz, sizeof(data_type));
+    prevs[i] = calloc(sz, sizeof(size_t));
+    for (size_t j = 0; j < sz; j++) {
+      graph[i][j] = inf;
+      scanf("%ld", &graph[i][j]);
+    }
+  }
+
+  floyd((const data_type **)graph, sz, dist, inf, prevs);
+
+  size_t qnum;
+  scanf("%lu", &qnum);
+  for (size_t i = 0; i < qnum; i++) {
+    size_t from, to;
+    scanf("%lu%lu", &from, &to);
+    sequence_stack st;
+    INIT_SEQUENCE_STACK(size_t, &st);
+    for (size_t curr = to; curr != SIZE_MAX; curr = prevs[from][curr]) {
+      SEQUENCE_STACK_PUSH(size_t, &st, curr);
+    }
+    while (!sequence_stack_empty(&st)) {
+      printf("%lu\n", SEQUENCE_STACK_TOP(size_t, &st));
+      SEQUENCE_STACK_POP(size_t, &st);
+    }
+    destroy_sequence_stack(&st);
+  }
+
+  for (size_t i = 0; i < sz; i++) {
+    free(graph[i]);
+    free(prevs[i]);
+    free(dist[i]);
+  }
+  free(graph);
+  free(dist);
+  free(prevs);
+  return 0;
 }
+
+int main(void) { solve(); }

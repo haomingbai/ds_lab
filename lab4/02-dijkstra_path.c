@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -902,6 +901,8 @@ binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
   return to_remove;
 }
 
+// Sequence list
+
 #define MAX_OF(A, B) (((A) < (B)) ? (B) : (A))
 
 typedef struct sequence_list {
@@ -1089,212 +1090,392 @@ bool sequence_stack_empty(sequence_stack *stack) {
   return sequence_list_empty(stack);
 }
 
-// Algorithm
+// Linked list
 
-/*
- * 哈夫曼编码实现，包括构建哈夫曼树、生成字符编码及编码字符串。
- */
+#define CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR) \
+  ((NODE_TYPE *)((char *)(NODE_PTR) - (offsetof(NODE_TYPE, MEMBER))))
 
-// 定义编码器结构体，用于存储字符及其对应的哈夫曼编码信息
-typedef struct encoder {
-  char c;                        // 字符
-  binary_node *node_in_huffman;  // 指向huffman_node中的huff成员
-  char *code;                    // 该字符的哈夫曼编码字符串
-  binary_node node;              // 用于红黑树中的节点
-} encoder;
+#define MAKE_NODE(NODE_TYPE, MEMBER) \
+  ((intrusive_node *)(&(((NODE_TYPE *)(malloc(sizeof(NODE_TYPE))))->MEMBER)))
 
-// 比较两个encoder节点的字符大小，用于红黑树排序
-int encoder_cmp(const binary_node *node1, const binary_node *node2) {
-  encoder *e1 = CONTAINER_OF(encoder, node,
-                             node1),  // 通过成员指针获取父结构体指针
-      *e2 = CONTAINER_OF(encoder, node, node2);
-  if (e1->c < e2->c) {
+#define REMOVE_NODE_FROM_LIST(LIST_PTR, NODE_PTR) \
+  (((LIST_PTR)->size--), _remove_Node_without_changing_size(NODE_PTR));
+
+#define RELEASE_NODE(NODE_TYPE, MEMBER, NODE_PTR) \
+  free(CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR))
+
+#define REMOVE_AND_RELEASE(NODE_TYPE, MEMBER, LIST_PTR, NODE_PTR) \
+  do {                                                            \
+    intrusive_node *_NODE_TO_DEL = NODE_PTR;                      \
+    assert(_NODE_TO_DEL != (LIST_PTR)->head);                     \
+    REMOVE_NODE_FROM_LIST(LIST_PTR, _NODE_TO_DEL);                \
+    free(CONTAINER_OF(NODE_TYPE, MEMBER, _NODE_TO_DEL));          \
+  } while (0)
+
+#define IS_EMPTY(LIST_PTR) (!((LIST_PTR)->size))
+
+#define DESTROY_LIST(NODE_TYPE, MEMBER, LIST_TYPE, LIST_PTR)      \
+  do {                                                            \
+    while ((LIST_PTR)->size) {                                    \
+      assert(((LIST_PTR)->head)->next->prev == (LIST_PTR)->head); \
+      REMOVE_AND_RELEASE(NODE_TYPE, MEMBER, LIST_PTR,             \
+                         (((LIST_PTR)->head)->next));             \
+    }                                                             \
+    _free_empty_##LIST_TYPE##_(LIST_PTR);                         \
+  } while (0)
+
+#define INSERT_BEHIND(LIST_PTR, NODE_PTR, NEW_NODE_PTR) \
+  do {                                                  \
+    ((NEW_NODE_PTR)->prev) = (NODE_PTR);                \
+    ((NEW_NODE_PTR)->next) = ((NODE_PTR)->next);        \
+    (((NODE_PTR)->next)->prev) = (NEW_NODE_PTR);        \
+    ((NODE_PTR)->next) = (NEW_NODE_PTR);                \
+    ((LIST_PTR)->size)++;                               \
+  } while (0)
+
+#define INSERT_IN_FRONT_OF(LIST_PTR, NODE_PTR, NEW_NODE_PTR) \
+  do {                                                       \
+    ((NEW_NODE_PTR)->prev) = ((NODE_PTR)->prev);             \
+    ((NEW_NODE_PTR)->next) = (NODE_PTR);                     \
+    (((NODE_PTR)->prev)->next) = (NEW_NODE_PTR);             \
+    ((NODE_PTR)->prev) = (NEW_NODE_PTR);                     \
+    ((LIST_PTR)->size)++;                                    \
+  } while (0)
+
+#define INIT_LINKED_LIST(LIST_TYPE, LIST_PTR) (_init_##LIST_TYPE##_(LIST_PTR))
+
+typedef struct intrusive_node {
+  struct intrusive_node *prev;
+  struct intrusive_node *next;
+
+} intrusive_node;
+
+typedef struct doubly_linked_list {
+  intrusive_node *head;
+  intrusive_node *tail;
+  size_t size;
+} doubly_linked_list;
+
+typedef struct circular_linked_list {
+  intrusive_node *head;
+  size_t size;
+} circular_linked_list;
+
+void _init_doubly_linked_list_(doubly_linked_list *list_ptr);
+
+void _init_circular_linked_list_(circular_linked_list *list_ptr);
+
+void _free_empty_doubly_linked_list_(doubly_linked_list *list_ptr);
+
+void _free_empty_circular_linked_list_(circular_linked_list *list_ptr);
+
+void _init_doubly_linked_list_(doubly_linked_list *list_ptr) {
+  intrusive_node *head_node = NULL, *tail_node = NULL;
+  head_node = (intrusive_node *)malloc(sizeof(intrusive_node));
+  tail_node = (intrusive_node *)malloc(sizeof(intrusive_node));
+
+  if (head_node == 0 || tail_node == 0) {
+    perror("Init doubly linked list failed!");
+    free(tail_node);
+    free(head_node);
+    return;
+  }
+
+  head_node->next = tail_node;
+  head_node->prev = NULL;
+  tail_node->next = NULL;
+  tail_node->prev = head_node;
+
+  list_ptr->size = 0;
+  list_ptr->head = head_node;
+  list_ptr->tail = tail_node;
+}
+
+void _init_circular_linked_list_(circular_linked_list *list_ptr) {
+  intrusive_node *head_node = 0;
+  head_node = (intrusive_node *)malloc(sizeof(intrusive_node));
+
+  if (head_node == 0) {
+    perror("Init circular linked list failed!");
+    free(head_node);
+    return;
+  }
+
+  head_node->prev = head_node;
+  head_node->next = head_node;
+
+  list_ptr->head = head_node;
+  list_ptr->size = 0;
+}
+
+void _free_empty_doubly_linked_list_(doubly_linked_list *list_ptr) {
+  assert(list_ptr->size == 0);
+  free(list_ptr->tail);
+  free(list_ptr->head);
+  list_ptr->tail = NULL;
+  list_ptr->head = NULL;
+}
+
+intrusive_node *_remove_Node_without_changing_size(intrusive_node *node_ptr) {
+  node_ptr->prev->next = node_ptr->next;
+  node_ptr->next->prev = node_ptr->prev;
+  node_ptr->prev = 0;
+  node_ptr->next = 0;
+  return node_ptr;
+}
+
+void _free_empty_circular_linked_list_(circular_linked_list *list_ptr) {
+  assert(list_ptr->size == 0);
+  free(list_ptr->head);
+  list_ptr->head = NULL;
+}
+
+// Graph
+
+typedef unsigned long DataType;
+
+typedef struct to_edge {
+  size_t destination;
+  DataType length;
+} to_edge;
+
+typedef struct adjacent_list {
+  sequence_list lst;
+  size_t size;
+  DataType inf;
+} adjacent_list;
+
+int init_adjacent_list(adjacent_list *obj, size_t node_num) {
+  INIT_SEQUENCE_LIST(doubly_linked_list, &obj->lst);
+  SEQUENCE_LIST_RESIZE(doubly_linked_list, &obj->lst, node_num);
+  ;
+  for (size_t i = 0; i < node_num; i++) {
+    doubly_linked_list *it = SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, i);
+    INIT_LINKED_LIST(doubly_linked_list, it);
+  }
+  obj->size = node_num;
+  obj->inf = 1e9;
+  return 0;
+}
+
+int init_adjacent_list_with_inf(adjacent_list *obj, size_t node_num,
+                                DataType inf) {
+  INIT_SEQUENCE_LIST(doubly_linked_list, &obj->lst);
+  SEQUENCE_LIST_RESIZE(doubly_linked_list, &obj->lst, node_num);
+  ;
+  for (size_t i = 0; i < node_num; i++) {
+    doubly_linked_list *it = SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, i);
+    INIT_LINKED_LIST(doubly_linked_list, it);
+  }
+  obj->inf = inf;
+  obj->size = node_num;
+  return 0;
+}
+
+typedef struct edge_node {
+  to_edge edge;
+  intrusive_node node;
+} edge_node;
+
+int adjacent_list_add_edge(adjacent_list *obj, size_t from, size_t to,
+                           DataType len) {
+  if (from == to) {
     return -1;
-  } else if (e1->c == e2->c) {
+  }
+  if (len >= obj->inf) {
+    return -2;
+  }
+  intrusive_node *node = MAKE_NODE(edge_node, node);
+  CONTAINER_OF(edge_node, node, node)->edge.destination = to;
+  CONTAINER_OF(edge_node, node, node)->edge.length = len;
+  INSERT_IN_FRONT_OF(
+      SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, from),
+      SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, from)->tail, node);
+  return 0;
+}
+
+int adjacent_list_remove_edge(adjacent_list *obj, size_t from, size_t to) {
+  bool flag = false;
+  for (intrusive_node *it =
+           SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, from)->head;
+       it != SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, from)->tail;) {
+    if (CONTAINER_OF(edge_node, node, it)->edge.destination == to) {
+      intrusive_node *old_it = it;
+      it = it->next;
+      REMOVE_AND_RELEASE(edge_node, node,
+                         SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, from),
+                         it);
+      flag = true;
+    } else {
+      it = it->next;
+    }
+  }
+  if (!flag) {
     return 0;
   } else {
-    return 1;
-  }
-}
-
-// 定义哈夫曼树节点结构体，包含权重和两种树节点
-typedef struct huffman_node {
-  size_t weight;     // 权重（出现频率）
-  binary_node huff;  // 用于构建哈夫曼树的节点
-  binary_node node;  // 用于红黑树（优先队列）中的节点
-} huffman_node;
-
-// 比较两个哈夫曼节点的权重，用于优先队列排序
-int huff_cmp(const binary_node *n1, const binary_node *n2) {
-  huffman_node *h1 = CONTAINER_OF(huffman_node, node, n1),
-               *h2 = CONTAINER_OF(huffman_node, node, n2);
-  if (h1->weight < h2->weight) {
     return -1;
-  } else if (h1->weight == h2->weight) {
-    return 0;
-  } else {
+  }
+}
+
+int destroy_adjacent_list(adjacent_list *obj) {
+  for (size_t i = 0; i < obj->size; i++) {
+    DESTROY_LIST(edge_node, node, doubly_linked_list,
+                 SEQUENCE_LIST_AT(doubly_linked_list, &obj->lst, i));
+  }
+  destroy_sequence_list(&obj->lst);
+  return 0;
+}
+
+// Dijkstra
+typedef struct distance_node {
+  DataType distance;
+  size_t pos;
+  binary_node node;
+} distance_node;
+
+int distance_node_cmp(const binary_node *a, const binary_node *b) {
+  if (CONTAINER_OF(distance_node, node, a)->distance >
+      CONTAINER_OF(distance_node, node, b)->distance) {
+    return -1;
+  } else if (CONTAINER_OF(distance_node, node, a)->distance <
+             CONTAINER_OF(distance_node, node, b)->distance) {
     return 1;
+  } else {
+    if (CONTAINER_OF(distance_node, node, a)->pos >
+        CONTAINER_OF(distance_node, node, b)->pos) {
+      return -1;
+    } else if (CONTAINER_OF(distance_node, node, a)->pos <
+               CONTAINER_OF(distance_node, node, b)->pos) {
+      return 1;
+    } else {
+      return 0;
+    }
   }
 }
 
-// 初始化哈夫曼节点的huff成员，重置父子指针
-static inline void set_huff(binary_node *n1) {
-  binary_node *h1 = &CONTAINER_OF(huffman_node, node, n1)->huff;
-  h1->parent = NULL;
-  h1->child[LEFT] = NULL;
-  h1->child[RIGHT] = NULL;
-}
-
-// 构建哈夫曼树：使用优先队列（红黑树）合并权重最小的节点
-void construct_huffman_tree(binary_tree *target, rb_tree *current_heap) {
-  // 初始化所有节点的huff成员
-  binary_tree_traverse(current_heap, set_huff, IN);
-  // 循环合并节点直到只剩一个根节点
-  while (current_heap->size > 1) {
-    // 取出权重最小的两个节点
-    binary_node *node1 = bst_get_smallest(current_heap);
-    rb_tree_remove(current_heap, node1, huff_cmp);
-    binary_node *node2 = bst_get_smallest(current_heap);
-    rb_tree_remove(current_heap, node2, huff_cmp);
-
-    // 创建新父节点，合并两个子节点
-    binary_node *new_node = MAKE_BINARY_NODE(huffman_node, node);
-    binary_node *huff1 = &CONTAINER_OF(huffman_node, node, node1)->huff,
-                *huff2 = &CONTAINER_OF(huffman_node, node, node2)->huff,
-                *huff_p = &CONTAINER_OF(huffman_node, node, new_node)->huff;
-    // 设置父子关系
-    huff_p->child[LEFT] = huff1;
-    huff_p->child[RIGHT] = huff2;
-    huff1->parent = huff_p;
-    huff2->parent = huff_p;
-    // 计算合并后的权重
-    CONTAINER_OF(huffman_node, huff, huff_p)->weight =
-        CONTAINER_OF(huffman_node, huff, huff1)->weight +
-        CONTAINER_OF(huffman_node, huff, huff2)->weight;
-    // 将新节点插入回优先队列
-    rb_tree_insert(current_heap, new_node, huff_cmp);
+int dijkstra(adjacent_list *graph, sequence_list *distance,
+             sequence_list *prevs, size_t from) {
+  if (graph->size == 0) {
+    return -1;
   }
-  // 设置哈夫曼树的根节点
-  target->root = &CONTAINER_OF(huffman_node, node, current_heap->root)->huff;
-}
 
-// 生成每个字符的哈夫曼编码
-void gen_encoder(rb_tree *encoders, binary_tree *huffman_tree) {
-  // 内部函数：为每个encoder设置编码
-  void set_encoder(binary_node * cnode) {
-    sequence_stack st;
-    INIT_SEQUENCE_STACK(char, &st);  // 使用栈逆向存储路径
-    size_t cnt = 0;
-    encoder *e = CONTAINER_OF(encoder, node, cnode);
-    binary_node *hnode = e->node_in_huffman;  // 对应的哈夫曼树节点
+  // Initialize required resources
+  SEQUENCE_LIST_RESIZE(DataType, distance, graph->size);
+  for (size_t i = 0; i < graph->size; i++) {
+    SEQUENCE_LIST_REFERENCE(DataType, distance, i) = graph->inf;
+  }
+  SEQUENCE_LIST_RESIZE(size_t, prevs, graph->size);
+  for (size_t i = 0; i < graph->size; i++) {
+    SEQUENCE_LIST_REFERENCE(size_t, prevs, i) = SIZE_MAX;
+  }
+  SEQUENCE_LIST_REFERENCE(DataType, distance, from) = 0;
+  rb_tree pqueue;  // Priority queue
+  init_rb_tree(&pqueue);
+  binary_node *node = MAKE_BINARY_NODE(distance_node, node);
+  CONTAINER_OF(distance_node, node, node)->distance = 0;
+  CONTAINER_OF(distance_node, node, node)->pos = from;
+  rb_tree_insert(&pqueue, node, distance_node_cmp);
+  node = NULL;
+  bool *visited = calloc(graph->size, sizeof(bool));
+  size_t cnt = 0;
+  bool success = true;
 
-    // 从叶子节点回溯到根，记录路径（0/1）
-    while (hnode != huffman_tree->root) {
-      cnt++;
-      binary_node *parent = hnode->parent;
-      if (hnode == parent->child[LEFT]) {
-        SEQUENCE_STACK_PUSH(char, &st, '0');
-      } else if (hnode == parent->child[RIGHT]) {
-        SEQUENCE_STACK_PUSH(char, &st, '1');
+  while (binary_tree_get_size(&pqueue) != 0) {
+    binary_node *it = bst_get_greatest(&pqueue);
+    size_t to_proc = CONTAINER_OF(distance_node, node, it)->pos;
+    DataType dist = CONTAINER_OF(distance_node, node, it)->distance;
+    rb_tree_remove(&pqueue, it, distance_node_cmp);
+    FREE_BINARY_NODE(distance_node, node, it);
+    it = NULL;
+    if (visited[to_proc]) {
+      continue;
+    }
+    if (cnt >= graph->size) {
+      break;
+    }
+    if (dist >= graph->inf) {
+      success = false;
+      break;
+    }
+    cnt++;
+    visited[to_proc] = true;
+
+    for (intrusive_node *it =
+             SEQUENCE_LIST_AT(doubly_linked_list, &graph->lst, to_proc)
+                 ->head->next;
+         it != SEQUENCE_LIST_AT(doubly_linked_list, &graph->lst, to_proc)->tail;
+         it = it->next) {
+      DataType edge_len = CONTAINER_OF(edge_node, node, it)->edge.length;
+      size_t to_update = CONTAINER_OF(edge_node, node, it)->edge.destination;
+      if (!visited[to_update] && edge_len < graph->inf &&
+          edge_len < graph->inf -
+                         SEQUENCE_LIST_REFERENCE(DataType, distance, to_proc) &&
+          SEQUENCE_LIST_REFERENCE(DataType, distance, to_proc) + edge_len <
+              SEQUENCE_LIST_REFERENCE(DataType, distance, to_update)) {
+        binary_node *node_to_insert = MAKE_BINARY_NODE(distance_node, node);
+        DataType final_dist =
+            SEQUENCE_LIST_REFERENCE(DataType, distance, to_proc) + edge_len;
+        CONTAINER_OF(distance_node, node, node_to_insert)->distance =
+            final_dist;
+        CONTAINER_OF(distance_node, node, node_to_insert)->pos = to_update;
+        int insert_res =
+            rb_tree_insert(&pqueue, node_to_insert, distance_node_cmp);
+        if (insert_res) {
+          FREE_BINARY_NODE(distance_node, node, node_to_insert);
+        }
+        node_to_insert = NULL;
+        SEQUENCE_LIST_REFERENCE(DataType, distance, to_update) = final_dist;
+        SEQUENCE_LIST_REFERENCE(size_t, prevs, to_update) = to_proc;
       }
-      hnode = parent;
     }
+  }
 
-    // 将栈中的路径转换为字符串
-    char *res = malloc(cnt + 1);
-    size_t i = 0;
-    while (!sequence_stack_empty(&st)) {
-      res[i] = SEQUENCE_STACK_TOP(char, &st);
-      SEQUENCE_STACK_POP(char, &st);
-      i++;
+  free(visited);
+  DESTROY_BINARY_TREE(distance_node, node, &pqueue);
+  if (success) {
+    return 0;
+  } else {
+    return -1;
+  }
+}
+
+int solve() {
+  adjacent_list graph;
+  size_t node_num;
+  scanf("%lu", &node_num);
+  init_adjacent_list_with_inf(&graph, node_num, 10000);
+  for (size_t i = 0; i < node_num; i++) {
+    for (size_t j = 0; j < node_num; j++) {
+      DataType length;
+      scanf("%lu", &length);
+      adjacent_list_add_edge(&graph, i, j, length);
     }
-    res[i] = 0;  // 字符串终止符
-    e->code = res;
-    destroy_sequence_stack(&st);
   }
-  // 遍历所有encoder节点，生成编码
-  binary_tree_traverse(encoders, set_encoder, IN);
-}
+  size_t from, to;
+  scanf("%lu%lu", &from, &to);
 
-// 根据字符获取对应的哈夫曼编码
-char *get_code(rb_tree *encoders, char c) {
-  encoder coder;
-  coder.c = c;
-  // 在红黑树中查找对应字符的encoder节点
-  binary_node *n = rb_tree_find_node(encoders, &coder.node, encoder_cmp);
-  return CONTAINER_OF(encoder, node, n)->code;
-}
+  sequence_list distance, prevs;
+  INIT_SEQUENCE_LIST(DataType, &distance);
+  INIT_SEQUENCE_LIST(size_t, &prevs);
+  dijkstra(&graph, &distance, &prevs, from);
 
-// 释放encoder节点中的编码字符串内存
-static inline void free_encoder(binary_node *n) {
-  if (n) {
-    assert(CONTAINER_OF(encoder, node, n)->code);
-    free(CONTAINER_OF(encoder, node, n)->code);
-    CONTAINER_OF(encoder, node, n)->code = NULL;
-  }
-}
-
-// 释放所有资源：哈夫曼树和编码器树
-char *release_resources(binary_tree *encoders, binary_tree *huff) {
-  DESTROY_BINARY_TREE(huffman_node, huff, huff);     // 销毁哈夫曼树
-  binary_tree_traverse(encoders, free_encoder, IN);  // 释放编码字符串
-  DESTROY_BINARY_TREE(encoder, node, encoders);      // 销毁编码器树
-}
-
-int main(void) {
-  size_t num_char;
-  scanf("%lu", &num_char);
-  rb_tree char_tree, weight_heap;  // 字符红黑树和权重优先队列
-  init_rb_tree(&char_tree);
-  init_rb_tree(&weight_heap);
-  binary_node *encoders[num_char];  // 临时存储encoder节点指针
-
-  // 读取所有字符并插入红黑树
-  for (size_t i = 0; i < num_char; i++) {
-    binary_node *to_ins = MAKE_BINARY_NODE(encoder, node);
-    char c;
-    do {
-      scanf("%c", &c);  // 跳过空白字符
-    } while (isspace(c));
-    CONTAINER_OF(encoder, node, to_ins)->c = c;
-    rb_tree_insert(&char_tree, to_ins, encoder_cmp);
-    encoders[i] = to_ins;
+  sequence_stack st;
+  INIT_SEQUENCE_STACK(size_t, &st);
+  for (size_t i = to; i != SIZE_MAX;
+       i = SEQUENCE_LIST_REFERENCE(size_t, &prevs, i)) {
+    SEQUENCE_STACK_PUSH(size_t, &st, i);
   }
 
-  // 读取每个字符的权重并构建优先队列
-  for (size_t i = 0; i < num_char; i++) {
-    binary_node *to_proc = encoders[i];
-    // 创建对应的哈夫曼节点并初始化权重
-    CONTAINER_OF(encoder, node, to_proc)->node_in_huffman =
-        MAKE_BINARY_NODE(huffman_node, huff);
-    binary_node *node_in_heap =
-        &CONTAINER_OF(huffman_node, huff,
-                      CONTAINER_OF(encoder, node, to_proc)->node_in_huffman)
-             ->node;
-    size_t weight;
-    scanf("%lu", &weight);
-    CONTAINER_OF(huffman_node, node, node_in_heap)->weight = weight;
-    rb_tree_insert(&weight_heap, node_in_heap, huff_cmp);
+  while (!sequence_stack_empty(&st)) {
+    printf("%lu\n", SEQUENCE_STACK_TOP(size_t, &st));
+    SEQUENCE_STACK_POP(size_t, &st);
   }
 
-  // 构建哈夫曼树并生成编码
-  binary_tree huffman;
-  init_binary_tree(&huffman);
-  construct_huffman_tree(&huffman, &weight_heap);
-  gen_encoder(&char_tree, &huffman);
-
-  // 读取输入字符串并输出编码结果
-  char str[101];
-  scanf("%s", str);
-  size_t len = strlen(str);
-  for (size_t i = 0; i < len; i++) {
-    char c = str[i];
-    char *code = get_code(&char_tree, c);
-    printf("%s", code);
-  }
-  putchar('\n');
-  printf("%s\n", str);  // 输出原字符串（示例用途）
-
-  // 释放所有动态分配的内存
-  release_resources(&char_tree, &huffman);
+  destroy_sequence_stack(&st);
+  destroy_sequence_list(&prevs);
+  destroy_sequence_list(&distance);
+  destroy_adjacent_list(&graph);
+  return 0;
 }
+
+int main() { solve(); }

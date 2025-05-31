@@ -1,5 +1,10 @@
+/*
+ * 二叉树
+ * 框架代码
+ * 项目: 侵入式二叉树, 二叉搜索树, 红黑树, 常见二叉树相关算法
+ * */
+
 #include <assert.h>
-#include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -7,50 +12,48 @@
 #include <stdlib.h>
 #include <string.h>
 
-// GNU C 扩展 Likely 分支预测优化支持
+// GNUC 扩展支持, unlikely 帮助分支预测
 #ifdef __GNUC__
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
-// 容器支持, 帮助实现侵入式数据结构
+// CONTAINER_OF 核心宏
 #define CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR) \
   ((NODE_TYPE *)((char *)(NODE_PTR) - (offsetof(NODE_TYPE, MEMBER))))
 
-// 结构体定义
+// 二叉节点类型声明
 typedef struct binary_node binary_node;
 typedef binary_node binary_node;
 
-// 树旋转方向和颜色支持
 enum direction { LEFT = 0, RIGHT = 1 };
+// 红黑树支持
 enum color { RED = 0, BLACK = 1 };
 
-// 红黑树和二叉树节点
 struct binary_node {
   binary_node *parent;
   binary_node *child[2];
   enum color color;
 };
 
-// 二叉树的遍历顺序.
+// 遍历顺序
 enum traverse_order { PRE, IN, POST };
 
-// 二叉树类定义
+// 二叉树对象
 typedef struct binary_tree {
   binary_node *root;
   size_t size;
 } binary_tree;
 
-// 内部别名定义
 typedef binary_tree bTree;
 
-// 构造函数定义
+// 构造函数
 int init_binary_tree(binary_tree *tree) {
   tree->size = 0, tree->root = NULL;
   return 0;
 }
 
-// 二叉树生成函数定义, 方便在堆上直接构建红黑树
+// 在堆上构造树
 binary_tree *make_binary_tree() {
   bTree *tree = (bTree *)malloc(sizeof(bTree));
 #ifdef __GNUC__
@@ -64,7 +67,7 @@ binary_tree *make_binary_tree() {
   return tree;
 }
 
-// 二叉树的插入, 注意不会改变二叉树存储的大小, 大小信息请手动更新
+// 节点插入功能实现
 // Notice: this function will never update the size of the tree for it is not
 // efficient enough to be integrated and in different cases there exists many of
 // different occasions.
@@ -97,10 +100,7 @@ binary_node *binary_tree_insert(binary_tree *tree, binary_node *node,
   }
 }
 
-// 工具函数: 二叉树的移植. 移植功能在二叉树的构造中及其重要.
-// 一个最小化功能的移植应当是单项的. 即在移植过程中,
-// 新节点会被放置在旧节点的位置, 即所在位置的父节点的儿子需要是新节点,
-// 但是新节点的父亲并没有被设置成旧节点.
+// 树移植功能, 用于将旧节点移植到新节点
 binary_node *binary_tree_transplant(binary_tree *tree, binary_node *old_node,
                                     binary_node *new_node) {
   binary_node *parent = old_node->parent;
@@ -108,11 +108,9 @@ binary_node *binary_tree_transplant(binary_tree *tree, binary_node *old_node,
     new_node->parent = parent;
   }
   if (parent == NULL) {
-    // 移植的位置在树根
     assert(tree->root == old_node);
     tree->root = new_node;
   } else {
-    // 移植在树枝或者树干
     assert(tree->root != old_node);
     if (parent->child[LEFT] == old_node) {
       parent->child[LEFT] = new_node;
@@ -125,10 +123,8 @@ binary_node *binary_tree_transplant(binary_tree *tree, binary_node *old_node,
   return old_node;
 }
 
-// 带有偏移量的内存分配函数, 使用malloc实现,
-// 但是同时考虑到侵入式数据结构经常需要返回偏移地址的特性. 这个函数不对外暴露,
-// 仅供内部使用.
-static inline void *__alloc_with_offset(size_t size, size_t offset) {
+// 内部函数, 分配内存, 判断空并且加偏移量返回
+void *__alloc_with_offset(size_t size, size_t offset) {
   void *ptr = malloc(size);
 #ifdef __GNUC__
   if (likely(ptr)) {
@@ -141,26 +137,79 @@ static inline void *__alloc_with_offset(size_t size, size_t offset) {
   }
 }
 
-// 创造新节点
+// 节点构造函数, 依赖 `__alloc_with_offset` 实现.
 #define MAKE_BINARY_NODE(NODE_TYPE, MEMBER)              \
   ((binary_node *)__alloc_with_offset(sizeof(NODE_TYPE), \
                                       offsetof(NODE_TYPE, MEMBER)))
 
-// 释放旧节点
+// 节点析构函数
 #define FREE_BINARY_NODE(NODE_TYPE, MEMBER, NODE_PTR) \
   (free(CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR)))
 
-// 交换左右孩子
+// 遍历函数, 在C语言标准中, 只能实现单个参数的遍历函数.
+// 如果需要支持类似C++的
+// template<typename ...Args>功能, 需要通过已经过时的特性声明函数:
+// void binary_node_traverse(binary_node *node, void *func, enum traverse_order
+// order, size_t num_of_params, ...);
+void binary_node_traverse(binary_node *node, void (*func)(binary_node *),
+                          enum traverse_order order) {
+  switch (order) {
+    case PRE:
+      func(node);
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      break;
+    case POST:
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      func(node);
+      break;
+    case IN:
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      func(node);
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      break;
+  }
+}
+
+// 遍历二叉树
+void binary_tree_traverse(binary_tree *tree, void (*func)(binary_node *),
+                          enum traverse_order order) {
+  if (tree->root == NULL) {
+    return;
+  } else {
+    binary_node_traverse(tree->root, func, order);
+  }
+}
+
+// 二叉树常见算法: 交换左右枝
 void binary_node_switch_order(binary_node *node) {
   binary_node *tmp = node->child[LEFT];
   node->child[LEFT] = node->child[RIGHT];
   node->child[RIGHT] = tmp;
 }
 
-// 定义"最大"
+// 二叉树常见算法: 反转二叉树
+void binary_tree_reverse(binary_tree *tree) {
+  binary_tree_traverse(tree, binary_node_switch_order, POST);
+}
+
+// 常见工具宏: 返回最大值
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-// 确定二叉树树高
+// 树高度计算, 复杂度 O(n)
 size_t binary_node_height(binary_node *node) {
   if (node == NULL) {
     return 0;
@@ -176,7 +225,7 @@ size_t binary_tree_height(binary_tree *tree) {
   return res;
 }
 
-// 直接获取二叉树高度, 请在二叉树高度有人维护的前提下使用.
+// 树大小相关函数
 size_t binary_tree_get_size(binary_tree *tree) { return tree->size; }
 
 size_t binary_node_get_size(binary_node *root) {
@@ -187,7 +236,6 @@ size_t binary_node_get_size(binary_node *root) {
          binary_node_get_size(root->child[RIGHT]);
 }
 
-// 二叉树获取树大小
 size_t binary_tree_update_size(binary_tree *tree) {
   size_t res = binary_node_get_size(tree->root);
   tree->size = res;
@@ -199,7 +247,6 @@ size_t binary_tree_gen_size(binary_tree *tree) {
   return res;
 }
 
-// 内存释放函数...
 void __release_with_offset(void *ptr, size_t offset) {
   if (ptr == NULL) {
     return;
@@ -207,7 +254,6 @@ void __release_with_offset(void *ptr, size_t offset) {
   free((void *)((char *)ptr - offset));
 }
 
-// 内存释放函数
 void __free_binary_root_with_offset(binary_node *root, size_t offset) {
   if (root == NULL) {
     return;
@@ -217,23 +263,22 @@ void __free_binary_root_with_offset(binary_node *root, size_t offset) {
   __release_with_offset(root, offset);
 }
 
-// 销毁侵入式二叉树
+// 销毁二叉树
 #define DESTROY_BINARY_TREE(NODE_TYPE, MEMBER, TREE_PTR) \
   __free_binary_root_with_offset(((TREE_PTR)->root),     \
                                  (offsetof(NODE_TYPE, MEMBER)))
 
-// 工具函数: 二叉树的旋转
+// 二叉树常见算法: 树旋转
+// 这个算法在AVL和RB Tree中至关重要
 int binary_tree_rotate(binary_tree *tree, binary_node *node,
                        enum direction dir) {
   if (node == NULL || tree == NULL) {
     return -1;
   }
-  // 旋转节点是树根
   if (node->parent == NULL) {
     assert(node == tree->root);
 
     switch (dir) {
-      // 左旋代码
       case LEFT: {
         if (node->child[RIGHT] == NULL) {
           return -2;
@@ -249,13 +294,11 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
         if (child_to_swap != NULL) {
           child_to_swap->parent = old_root;
         }
-        // 悬挂新节点
         old_root->parent = new_root;
         new_root->parent = NULL;
 
         return 0;
       }
-      // 右旋代码
       case RIGHT: {
         if (node->child[LEFT] == NULL) {
           return -2;
@@ -271,7 +314,6 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
         if (child_to_swap != NULL) {
           child_to_swap->parent = old_root;
         }
-        // 悬挂新节点
         old_root->parent = new_root;
         new_root->parent = NULL;
 
@@ -282,7 +324,6 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
       }
     }
   }
-  // 旋转节点不是树根
   switch (dir) {
     case LEFT: {
       if (node->child[RIGHT] == NULL) {
@@ -344,54 +385,206 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
   }
 }
 
-void binary_node_traverse(binary_node *node, void (*func)(binary_node *),
-                          enum traverse_order order) {
-  switch (order) {
-    case PRE:
-      func(node);
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      break;
-    case POST:
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      func(node);
-      break;
-    case IN:
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      func(node);
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      break;
-  }
-}
-
-// 反转二叉树功能
-void binary_tree_traverse(binary_tree *tree, void (*func)(binary_node *),
-                          enum traverse_order order) {
-  if (tree->root == NULL) {
-    return;
+binary_node *binary_node_find_lowest_ancestor(binary_node *root,
+                                              binary_node *node1,
+                                              binary_node *node2) {
+  if (root == NULL) {
+    return NULL;
+  } else if (root == node1 || root == node2) {
+    return root;
   } else {
-    binary_node_traverse(tree->root, func, order);
+    binary_node *left = binary_node_find_lowest_ancestor(root->child[LEFT],
+                                                         node1, node2),
+                *right = binary_node_find_lowest_ancestor(root->child[RIGHT],
+                                                          node1, node2);
+    if (left && right) {
+      return root;
+    } else {
+      if (left) {
+        return left;
+      } else if (right) {
+        return right;
+      } else {
+        assert(0);
+      }
+    }
   }
 }
 
-// 二叉搜索树, 类声明和定义
+// 二叉树常见算法: 最近公共祖先
+binary_node *binary_tree_find_lowest_ancestor(binary_tree *tree,
+                                              binary_node *node1,
+                                              binary_node *node2) {
+  assert(binary_tree_gen_size(tree) >= 2);
+  return binary_node_find_lowest_ancestor(tree->root, node1, node2);
+}
+
+// 队列相关算法
+#ifdef ENABLE_QUEUE
+
+#include "./linked_list.c"
+
+void binary_node_level_order(binary_node *root, void (*func)(binary_node *)) {
+  typedef struct {
+    binary_node *target;
+    intrusive_node node;
+  } bfs_node;
+  linked_queue queue;
+  init_linked_queue(&queue);
+  intrusive_node *nRoot = MAKE_NODE(bfs_node, node);
+  CONTAINER_OF(bfs_node, node, nRoot)->target = root;
+  linked_queue_push(&queue, nRoot);
+  nRoot = NULL;
+  while (!linked_queue_empty(&queue)) {
+    intrusive_node *node_to_proc = linked_queue_pop(&queue);
+
+    func(CONTAINER_OF(bfs_node, node, node_to_proc)->target);
+    if (CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[LEFT] !=
+        NULL) {
+      intrusive_node *nNode = MAKE_NODE(bfs_node, node);
+      CONTAINER_OF(bfs_node, node, nNode)->target =
+          CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[LEFT];
+      linked_queue_push(&queue, nNode);
+    }
+    if (CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[RIGHT] !=
+        NULL) {
+      intrusive_node *nNode = MAKE_NODE(bfs_node, node);
+      CONTAINER_OF(bfs_node, node, nNode)->target =
+          CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[RIGHT];
+      linked_queue_push(&queue, nNode);
+    }
+    RELEASE_NODE(bfs_node, node, node_to_proc);
+  }
+}
+
+#endif
+
+// 通过先/后序遍历和中序遍历构造二叉树
+binary_node *construct_binary_tree(binary_node **node_list_mid,
+                                   binary_node **node_list, size_t len,
+                                   enum traverse_order seq) {
+  switch (seq) {
+    case PRE: {
+      if (len < 1) {
+        return NULL;
+      }
+      binary_node *root = node_list[0];
+      if (len == 1) {
+        root->child[LEFT] = NULL;
+        root->child[RIGHT] = NULL;
+        return root;
+      }
+      size_t pos;
+      for (pos = 0; pos < len; pos++) {
+        if (node_list_mid[pos] == root) {
+          break;
+        }
+      }
+      root->child[LEFT] =
+          construct_binary_tree(node_list_mid, node_list + 1, pos, seq);
+      root->child[RIGHT] = construct_binary_tree(
+          node_list_mid + pos + 1, node_list + pos + 1, len - pos - 1, seq);
+      return root;
+    }
+    case POST: {
+      if (len < 1) {
+        return NULL;
+      }
+      binary_node *root = node_list[len - 1];
+      if (len == 1) {
+        root->child[LEFT] = NULL;
+        root->child[RIGHT] = NULL;
+        return root;
+      }
+      size_t pos;
+      for (pos = 0; pos < len; pos++) {
+        if (node_list_mid[pos] == root) {
+          break;
+        }
+      }
+      root->child[LEFT] =
+          construct_binary_tree(node_list_mid, node_list, pos, seq);
+      root->child[RIGHT] = construct_binary_tree(
+          node_list_mid + pos + 1, node_list + pos, len - pos - 1, seq);
+      return root;
+    }
+    case IN: {
+      assert(0);
+    }
+    default: {
+      assert(0);
+    }
+  }
+}
+
+// 二叉节点的pair.
+struct _internal_node_pair {
+  binary_node *first, *second;
+};
+
+// 找到一个BST的最大节点和最小节点, 如果不满足BST, 则返回 {NULL, NULL}
+static inline struct _internal_node_pair _bst_small_big(
+    binary_node *root, int (*cmp)(const binary_node *, const binary_node *)) {
+  struct _internal_node_pair res = {NULL, NULL};
+  if (root == NULL) {
+    return (struct _internal_node_pair){.first = NULL, .second = NULL};
+  }
+
+  if (root->child[LEFT]) {
+    struct _internal_node_pair left_pair =
+        _bst_small_big(root->child[LEFT], cmp);
+    if (left_pair.first == NULL || left_pair.second == NULL) {
+      return (struct _internal_node_pair){.first = NULL, .second = NULL};
+    } else if (cmp(left_pair.second, root) >= 0) {
+      return (struct _internal_node_pair){NULL, NULL};
+    } else {
+      res.first = left_pair.first;
+    }
+  } else {
+    res.first = root;
+  }
+
+  if (root->child[RIGHT]) {
+    struct _internal_node_pair right_pair =
+        _bst_small_big(root->child[RIGHT], cmp);
+    if (right_pair.first == NULL || right_pair.second == NULL) {
+      return (struct _internal_node_pair){NULL, NULL};
+    } else if (cmp(root, right_pair.first) >= 0) {
+      return (struct _internal_node_pair){NULL, NULL};
+    } else {
+      res.second = right_pair.second;
+    }
+  } else {
+    res.second = root;
+  }
+
+  return res;
+}
+
+// BST检测函数
+bool binary_node_is_bst_root(binary_node *root,
+                             int (*cmp)(const binary_node *,
+                                        const binary_node *)) {
+  if (root == NULL) {
+    return true;
+  }
+
+  struct _internal_node_pair node = _bst_small_big(root, cmp);
+  if (node.first == NULL || node.second == NULL) {
+    return false;
+  }
+  return true;
+}
+
+
+bool binary_tree_is_bst(binary_tree *tree,
+                        int (*cmp)(const binary_node *, const binary_node *)) {
+  return binary_node_is_bst_root(tree->root, cmp);
+}
+
 typedef binary_tree bst;
 typedef binary_node bst_node;
 
-// 二叉搜索树的CURD和构造函数
 int init_bst(bst *tree) { return init_binary_tree(tree); }
 
 int bst_insert(bst *tree, bst_node *node,
@@ -430,7 +623,7 @@ int bst_insert(bst *tree, bst_node *node,
   }
 }
 
-// 在二叉搜索树中找到某个节点, 如果不存在返回`NULL`
+// 在二叉搜索树中找到节点, 找不到返回NULL
 bst_node *bst_find(bst *tree, bst_node *node,
                    int (*cmp)(const bst_node *, const bst_node *)) {
   if (!binary_tree_get_size(tree)) {
@@ -454,7 +647,8 @@ bst_node *bst_find(bst *tree, bst_node *node,
   return curr;
 }
 
-// Be careful to use
+// Be careful to use this func...
+// 在二叉搜索树中移除节点 (未测试)
 bst_node *bst_remove(bst *tree, bst_node *node,
                      int (*cmp)(const bst_node *, const bst_node *)) {
   bst_node *node_to_remove = bst_find(tree, node, cmp);
@@ -585,7 +779,7 @@ bst_node *bst_remove(bst *tree, bst_node *node,
   }
 }
 
-// 获得树中的最小节点.
+// 找到树中最小节点
 binary_node *bst_get_smallest(binary_tree *tree) {
   binary_node *it = tree->root;
   if (!it) {
@@ -597,7 +791,6 @@ binary_node *bst_get_smallest(binary_tree *tree) {
   return it;
 }
 
-// 获得二叉搜索树中的最大节点
 binary_node *bst_get_greatest(binary_tree *tree) {
   binary_node *it = tree->root;
   if (!it) {
@@ -609,12 +802,14 @@ binary_node *bst_get_greatest(binary_tree *tree) {
   return it;
 }
 
-// RB Tree
+// 红黑树
 
+// 类型定义, 构造函数定义
 typedef binary_tree rb_tree;
 
 int init_rb_tree(rb_tree *tree) { return init_binary_tree(tree); }
 
+// 内部函数: 得到祖父节点
 static inline binary_node *_rbTree_get_grandpa(binary_node *node) {
   binary_node *parent = node->parent;
   if (parent == NULL) {
@@ -624,6 +819,7 @@ static inline binary_node *_rbTree_get_grandpa(binary_node *node) {
   return grandpa;
 }
 
+// 内部函数, 得到叔节点
 static inline binary_node *_rbTree_get_uncle(binary_node *node) {
   binary_node *parent = node->parent;
   if (parent == NULL) {
@@ -642,6 +838,7 @@ static inline binary_node *_rbTree_get_uncle(binary_node *node) {
   }
 }
 
+// 内部函数: 颜色获取, 空为黑
 static inline enum color _rbTree_color(binary_node *node) {
   if (node == NULL) {
     return BLACK;
@@ -650,6 +847,8 @@ static inline enum color _rbTree_color(binary_node *node) {
   }
 }
 
+// 插入时转树, 染色
+// 具体思路参见: OI-Wiki
 static inline void _rbTree_set_insert_balance(rb_tree *tree,
                                               binary_node *node) {
   // Maintain the balance.
@@ -698,6 +897,7 @@ static inline void _rbTree_set_insert_balance(rb_tree *tree,
   }
 }
 
+// 红黑树插入
 int rb_tree_insert(rb_tree *tree, binary_node *node,
                    int (*cmp)(const binary_node *, const binary_node *)) {
   int insert_res = bst_insert(tree, node, cmp);
@@ -710,6 +910,7 @@ int rb_tree_insert(rb_tree *tree, binary_node *node,
   return 0;
 }
 
+// 内部函数: 找到后继结点, 先向右后向左
 static inline binary_node *_findSuccessor(binary_node *root) {
   binary_node *node = root->child[RIGHT];
   while (node && node->child[LEFT]) {
@@ -718,6 +919,7 @@ static inline binary_node *_findSuccessor(binary_node *root) {
   return node;
 }
 
+// 内部函数: 在红黑树中找到节点
 static inline binary_node *_rbTreeFindNode(rb_tree *tree, binary_node *node,
                                            int (*cmp)(const binary_node *,
                                                       const binary_node *)) {
@@ -741,6 +943,7 @@ static inline binary_node *_rbTreeFindNode(rb_tree *tree, binary_node *node,
   return it;
 }
 
+// 在BST和RB Tree中找到节点
 binary_node *rb_tree_find_node(rb_tree *tree, binary_node *node,
                                int (*cmp)(const binary_node *,
                                           const binary_node *)) {
@@ -758,8 +961,7 @@ static inline void _rbTree_switch_color(binary_node *node1,
   node2->color = mid;
 }
 
-// To be realized.
-// Direction is the direction of the removed node.
+// 删除节点后的平衡维护, 具体思路见OI-Wiki
 static inline void _rbTreeRemoveMaintain(rb_tree *tree, binary_node *parent,
                                          enum direction dir) {
   binary_node *bro = parent->child[dir == LEFT ? RIGHT : LEFT];
@@ -813,6 +1015,8 @@ static inline void _rbTreeRemoveMaintain(rb_tree *tree, binary_node *parent,
   }
 }
 
+// 红黑树节点删除
+// 返回被删除节点, 用户自行释放资源
 binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
                             int (*cmp)(const binary_node *,
                                        const binary_node *)) {
@@ -902,399 +1106,197 @@ binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
   return to_remove;
 }
 
-#define MAX_OF(A, B) (((A) < (B)) ? (B) : (A))
+// Test code
 
-typedef struct sequence_list {
-  void *data;
-  size_t size;
-  size_t capacity;
-} sequence_list;
+// Case 1: Insert and delete
+// typedef struct Node { binary_node node; int key; } Node;
+// int cmp(const binary_node *a, const binary_node *b) {
+//     const Node *pa = CONTAINER_OF(Node, node, a);
+//     const Node *pb = CONTAINER_OF(Node, node, b);
+//     return pa->key - pb->key;
+// }
+// void print_inorder(binary_node *n) {
+//     const Node *p = CONTAINER_OF(Node, node, n);
+//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
+// }
+// int main() {
+//     rb_tree tree;
+//     init_rb_tree(&tree);
+//     // 插入节点 10, 5, 15
+//     binary_node *b1 = MAKE_BINARY_NODE(Node, node); Node *n1 =
+//     CONTAINER_OF(Node, node, b1); n1->key = 10; rb_tree_insert(&tree, b1,
+//     cmp); binary_node *b2 = MAKE_BINARY_NODE(Node, node); Node *n2 =
+//     CONTAINER_OF(Node, node, b2); n2->key = 5; rb_tree_insert(&tree, b2,
+//     cmp); binary_node *b3 = MAKE_BINARY_NODE(Node, node); Node *n3 =
+//     CONTAINER_OF(Node, node, b3); n3->key = 15; rb_tree_insert(&tree, b3,
+//     cmp); printf("插入后中序: "); binary_tree_traverse(&tree, print_inorder,
+//     IN); printf("\n");
+//     // 删除节点 5
+//     Node temp; temp.key = 5; binary_node *removed = rb_tree_remove(&tree,
+//     &temp.node, cmp); if (removed) FREE_BINARY_NODE(Node, node, removed);
+//     printf("删除后中序: ");
+//     binary_tree_traverse(&tree, print_inorder, IN);
+//     printf("\n");
+//     return 0;
+// }
 
-size_t sequence_list_size(sequence_list *lst) { return lst->size; }
+// Case 2: rotate
+// typedef struct Node { binary_node node; int key; } Node;
+// int cmp(const binary_node *a, const binary_node *b) {
+//     const Node *pa = CONTAINER_OF(Node, node, a);
+//     const Node *pb = CONTAINER_OF(Node, node, b);
+//     return pa->key - pb->key;
+// }
+// void print_preorder(binary_node *n) {
+//     if (!n) return;
+//     const Node *p = CONTAINER_OF(Node, node, n);
+//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
+//     print_preorder(n->child[0]);
+//     print_preorder(n->child[1]);
+// }
+// int main() {
+//     rb_tree tree;
+//     init_rb_tree(&tree);
+//     // 插入节点 1, 2, 3（单侧插入引发平衡操作）
+//     Node *n1 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//     n1->key = 1; rb_tree_insert(&tree, &n1->node, cmp); Node *n2 =
+//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n2->key = 2;
+//     rb_tree_insert(&tree, &n2->node, cmp);
+//     Node *n3 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//     n3->key = 3; rb_tree_insert(&tree, &n3->node, cmp); printf("插入 1,2,3
+//     后先序: "); print_preorder(tree.root); printf("\n"); return 0;
+// }
 
-#define INIT_SEQUENCE_LIST(TYPE, LIST_PTR) \
-  do {                                     \
-    void *dat = malloc(sizeof(TYPE));      \
-    if (dat == NULL) {                     \
-      perror("Fail to init the list.");    \
-    } else {                               \
-      ((LIST_PTR)->capacity) = 1;          \
-      ((LIST_PTR)->size) = 0;              \
-      ((LIST_PTR)->data) = dat;            \
-    }                                      \
-  } while (0)
+// Case 3: rotate in different direction
+// typedef struct Node { binary_node node; int key; } Node;
+// int cmp(const binary_node *a, const binary_node *b) {
+//     const Node *pa = CONTAINER_OF(Node, node, a);
+//     const Node *pb = CONTAINER_OF(Node, node, b);
+//     return pa->key - pb->key;
+// }
+// void print_preorder(binary_node *n) {
+//     if (!n) return;
+//     const Node *p = CONTAINER_OF(Node, node, n);
+//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
+//     print_preorder(n->child[0]);
+//     print_preorder(n->child[1]);
+// }
+// int main() {
+//     rb_tree tree;
+//     init_rb_tree(&tree);
+//     // 插入节点 1, 3, 2（交叉插入引发双旋）
+//     Node *n1 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//     n1->key = 1; rb_tree_insert(&tree, &n1->node, cmp); Node *n3 =
+//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n3->key = 3;
+//     rb_tree_insert(&tree, &n3->node, cmp);
+//     Node *n2 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//     n2->key = 2; rb_tree_insert(&tree, &n2->node, cmp); printf("插入 1,3,2
+//     后先序: "); print_preorder(tree.root); printf("\n"); return 0;
+// }
 
-#define SEQUENCE_LIST_PUSH_BACK(TYPE, LIST_PTR, VAL)                  \
-  do {                                                                \
-    bool flag = true;                                                 \
-    if (((LIST_PTR)->size) == ((LIST_PTR)->capacity)) {               \
-      size_t new_capacity =                                           \
-          MAX_OF(((LIST_PTR)->size) + 1, ((LIST_PTR)->capacity) * 2); \
-      void *new_data =                                                \
-          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE));   \
-      if (new_data == NULL) {                                         \
-        perror("Fail to alloc extra memory, rollback...");            \
-        flag = false;                                                 \
-      } else {                                                        \
-        ((LIST_PTR)->data) = new_data;                                \
-        ((LIST_PTR)->capacity) = new_capacity;                        \
-      }                                                               \
-    }                                                                 \
-    if (flag) {                                                       \
-      ((TYPE *)((LIST_PTR)->data))[((LIST_PTR)->size)] = (TYPE)(VAL); \
-      ((LIST_PTR)->size)++;                                           \
-    }                                                                 \
-  } while (0)
+// Case 4: insert continuously
+// typedef struct Node { binary_node node; int key; } Node;
+// int cmp(const binary_node *a, const binary_node *b) {
+//     const Node *pa = CONTAINER_OF(Node, node, a);
+//     const Node *pb = CONTAINER_OF(Node, node, b);
+//     return pa->key - pb->key;
+// }
+// void print_inorder(binary_node *n) {
+//     if (!n) return;
+//     const Node *p = CONTAINER_OF(Node, node, n);
+//     print_inorder(n->child[0]);
+//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
+//     print_inorder(n->child[1]);
+// }
+// int main() {
+//     rb_tree tree;
+//     init_rb_tree(&tree);
+//     // 连续插入 1 到 7
+//     for (int i = 1; i <= 7; i++) {
+//         Node *node = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//         node->key = i;
+//         rb_tree_insert(&tree, &node->node, cmp);
+//     }
+//     printf("连续插入 1..7 后中序: ");
+//     print_inorder(tree.root);
+//     printf("\n");
+//     return 0;
+// }
 
-#define SEQUENCE_LIST_REFERENCE(TYPE, LIST_PTR, POSITION) \
-  (((TYPE *)((LIST_PTR)->data))[(POSITION) % ((LIST_PTR)->size)])
+// Case 5: remove root, not passed
+// typedef struct Node { binary_node node; int key; } Node;
+// int cmp(const binary_node *a, const binary_node *b) {
+//     const Node *pa = CONTAINER_OF(Node, node, a);
+//     const Node *pb = CONTAINER_OF(Node, node, b);
+//     return pa->key - pb->key;
+// }
+// void print_inorder(binary_node *n) {
+//     if (!n) return;
+//     const Node *p = CONTAINER_OF(Node, node, n);
+//     print_inorder(n->child[0]);
+//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
+//     print_inorder(n->child[1]);
+// }
+// int main() {
+//     rb_tree tree;
+//     init_rb_tree(&tree);
+//     // 构造三节点树并删除根节点
+//     Node *n10 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//     n10->key = 10; rb_tree_insert(&tree, &n10->node, cmp); Node *n5 =
+//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n5->key = 5;
+//     rb_tree_insert(&tree, &n5->node, cmp);
+//     Node *n15 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//     n15->key = 15; rb_tree_insert(&tree, &n15->node, cmp);
+//     printf("删除前中序: ");
+//     print_inorder(tree.root);
+//     printf("\n");
+//     // 删除根节点 10
+//     Node temp; temp.key = 10;
+//     binary_node *removed = rb_tree_remove(&tree, &temp.node, cmp);
+//     if (removed) FREE_BINARY_NODE(Node, node, removed);
+//     printf("删除 10 后中序: ");
+//     print_inorder(tree.root);
+//     printf("\n");
+//     return 0;
+// }
 
-#define SEQUENCE_LIST_AT(TYPE, LIST_PTR, POSITION) \
-  (((TYPE *)((LIST_PTR)->data)) + (POSITION))
-
-#define SEQUENCE_LIST_POP_BACK(TYPE, LIST_PTR)                      \
-  do {                                                              \
-    ((LIST_PTR)->size)--;                                           \
-    if (((LIST_PTR)->capacity) > (((LIST_PTR)->size) * 4 + 1)) {    \
-      size_t new_capacity = MAX_OF(((LIST_PTR)->size) * 4 + 1, 1);  \
-      void *new_data =                                              \
-          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
-      if (new_data == NULL) {                                       \
-        perror("Fail to alloc new memory, continue...");            \
-      } else {                                                      \
-        ((LIST_PTR)->data) = new_data;                              \
-        ((LIST_PTR)->capacity) = new_capacity;                      \
-      }                                                             \
-    }                                                               \
-  } while (0)
-
-#define SEQUENCE_LIST_INSERT(TYPE, LIST_PTR, POS, VAL)                        \
-  do {                                                                        \
-    bool flag = true;                                                         \
-    size_t old_size = (LIST_PTR)->size;                                       \
-    size_t new_size = ((LIST_PTR)->size) + 1;                                 \
-    if (new_size > ((LIST_PTR)->capacity)) {                                  \
-      size_t new_capacity = MAX_OF((((LIST_PTR)->capacity) * 2), (new_size)); \
-      void *new_data =                                                        \
-          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE));           \
-      if (new_data == NULL) {                                                 \
-        perror("Fail to alloc new memory, rollback...");                      \
-        flag = false;                                                         \
-      } else {                                                                \
-        ((LIST_PTR)->data) = new_data;                                        \
-        ((LIST_PTR)->capacity) = new_capacity;                                \
-      }                                                                       \
-    }                                                                         \
-    if (flag) {                                                               \
-      ((LIST_PTR)->size) = new_size;                                          \
-      TYPE *data = ((TYPE *)((LIST_PTR)->data));                              \
-      memmove((void *)((TYPE *)(data) + ((POS) + 1)),                         \
-              ((void *)((TYPE *)(data) + (POS))), ((old_size) - (POS)));      \
-      data[(POS)] = (VAL);                                                    \
-    }                                                                         \
-  } while (0)
-
-#define SEQUENCE_LIST_REMOVE(TYPE, LIST_PTR, POS)                   \
-  do {                                                              \
-    memmove(((void *)(((TYPE *)((LIST_PTR)->data)) + (POS))),       \
-            ((void *)(((TYPE *)((LIST_PTR)->data) + (POS) + 1))),   \
-            (((LIST_PTR)->size) - 1 - (POS)));                      \
-    ((LIST_PTR)->size)--;                                           \
-    if (((LIST_PTR)->capacity) > (((LIST_PTR)->size) * 4 + 1)) {    \
-      size_t new_capacity = MAX_OF(((LIST_PTR)->size) * 4 + 1, 1);  \
-      void *new_data =                                              \
-          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
-      if (new_data == NULL) {                                       \
-        perror("Fail to alloc new memory, continue...");            \
-      } else {                                                      \
-        ((LIST_PTR)->data) = new_data;                              \
-        ((LIST_PTR)->capacity) = new_capacity;                      \
-      }                                                             \
-    }                                                               \
-  } while (0)
-
-#define SEQUENCE_LIST_RESERVE(TYPE, LIST_PTR, NEW_SIZE)                        \
-  do {                                                                         \
-    size_t new_capacity = (NEW_SIZE);                                          \
-    void *new_data = realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
-    if (new_data == NULL) {                                                    \
-      perror("Fail to alloc new memory, rollback...");                         \
-    } else {                                                                   \
-      ((LIST_PTR)->data) = new_data;                                           \
-      ((LIST_PTR)->capacity) = new_capacity;                                   \
-    }                                                                          \
-  } while (0)
-
-#define SEQUENCE_LIST_RESIZE(TYPE, LIST_PTR, NEW_SIZE)              \
-  do {                                                              \
-    bool flag = true;                                               \
-    if ((NEW_SIZE) >= ((LIST_PTR)->capacity)) {                     \
-      size_t new_capacity =                                         \
-          MAX_OF((NEW_SIZE) + 1, ((LIST_PTR)->capacity) * 2);       \
-      void *new_data =                                              \
-          realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
-      if (new_data == NULL) {                                       \
-        perror("Fail to alloc extra memory, rollback...");          \
-        flag = false;                                               \
-      } else {                                                      \
-        ((LIST_PTR)->data) = new_data;                              \
-        ((LIST_PTR)->capacity) = new_capacity;                      \
-      }                                                             \
-    }                                                               \
-    if (flag) {                                                     \
-      ((LIST_PTR)->size) = (NEW_SIZE);                              \
-    }                                                               \
-  } while (0)
-
-#define SEQUENCE_LIST_SHRINK(TYPE, LIST_PTR)                                   \
-  do {                                                                         \
-    size_t new_capacity = MAX_OF(((LIST_PTR)->size), 1);                       \
-    void *new_data = realloc(((LIST_PTR)->data), new_capacity * sizeof(TYPE)); \
-    if (new_data == NULL) {                                                    \
-      perror("Fail to alloc new memory, continue...");                         \
-    } else {                                                                   \
-      ((LIST_PTR)->data) = new_data;                                           \
-      ((LIST_PTR)->capacity) = new_capacity;                                   \
-    }                                                                          \
-  } while (0)
-
-void destroy_sequence_list(sequence_list *lst) {
-  free(lst->data);
-  lst->capacity = 0;
-  lst->size = 0;
-}
-
-bool sequence_list_empty(sequence_list *lst) { return lst->size == 0; }
-
-// Sequence stack
-
-typedef sequence_list sequence_stack;
-
-#define INIT_SEQUENCE_STACK(TYPE, STACK_PTR) INIT_SEQUENCE_LIST(TYPE, STACK_PTR)
-
-#define SEQUENCE_STACK_PUSH(TYPE, STACK_PTR, VAL) \
-  SEQUENCE_LIST_PUSH_BACK(TYPE, STACK_PTR, VAL)
-
-#define SEQUENCE_STACK_TOP(TYPE, STACK_PTR) \
-  SEQUENCE_LIST_REFERENCE(TYPE, STACK_PTR, (((STACK_PTR)->size) - 1))
-
-#define SEQUENCE_STACK_POP(TYPE, STACK_PTR) \
-  SEQUENCE_LIST_POP_BACK(TYPE, STACK_PTR)
-
-void destroy_sequence_stack(sequence_stack *stack) {
-  destroy_sequence_list(stack);
-}
-
-bool sequence_stack_empty(sequence_stack *stack) {
-  return sequence_list_empty(stack);
-}
-
-// Algorithm
-
-/*
- * 哈夫曼编码实现，包括构建哈夫曼树、生成字符编码及编码字符串。
- */
-
-// 定义编码器结构体，用于存储字符及其对应的哈夫曼编码信息
-typedef struct encoder {
-  char c;                        // 字符
-  binary_node *node_in_huffman;  // 指向huffman_node中的huff成员
-  char *code;                    // 该字符的哈夫曼编码字符串
-  binary_node node;              // 用于红黑树中的节点
-} encoder;
-
-// 比较两个encoder节点的字符大小，用于红黑树排序
-int encoder_cmp(const binary_node *node1, const binary_node *node2) {
-  encoder *e1 = CONTAINER_OF(encoder, node,
-                             node1),  // 通过成员指针获取父结构体指针
-      *e2 = CONTAINER_OF(encoder, node, node2);
-  if (e1->c < e2->c) {
-    return -1;
-  } else if (e1->c == e2->c) {
-    return 0;
-  } else {
-    return 1;
-  }
-}
-
-// 定义哈夫曼树节点结构体，包含权重和两种树节点
-typedef struct huffman_node {
-  size_t weight;     // 权重（出现频率）
-  binary_node huff;  // 用于构建哈夫曼树的节点
-  binary_node node;  // 用于红黑树（优先队列）中的节点
-} huffman_node;
-
-// 比较两个哈夫曼节点的权重，用于优先队列排序
-int huff_cmp(const binary_node *n1, const binary_node *n2) {
-  huffman_node *h1 = CONTAINER_OF(huffman_node, node, n1),
-               *h2 = CONTAINER_OF(huffman_node, node, n2);
-  if (h1->weight < h2->weight) {
-    return -1;
-  } else if (h1->weight == h2->weight) {
-    return 0;
-  } else {
-    return 1;
-  }
-}
-
-// 初始化哈夫曼节点的huff成员，重置父子指针
-static inline void set_huff(binary_node *n1) {
-  binary_node *h1 = &CONTAINER_OF(huffman_node, node, n1)->huff;
-  h1->parent = NULL;
-  h1->child[LEFT] = NULL;
-  h1->child[RIGHT] = NULL;
-}
-
-// 构建哈夫曼树：使用优先队列（红黑树）合并权重最小的节点
-void construct_huffman_tree(binary_tree *target, rb_tree *current_heap) {
-  // 初始化所有节点的huff成员
-  binary_tree_traverse(current_heap, set_huff, IN);
-  // 循环合并节点直到只剩一个根节点
-  while (current_heap->size > 1) {
-    // 取出权重最小的两个节点
-    binary_node *node1 = bst_get_smallest(current_heap);
-    rb_tree_remove(current_heap, node1, huff_cmp);
-    binary_node *node2 = bst_get_smallest(current_heap);
-    rb_tree_remove(current_heap, node2, huff_cmp);
-
-    // 创建新父节点，合并两个子节点
-    binary_node *new_node = MAKE_BINARY_NODE(huffman_node, node);
-    binary_node *huff1 = &CONTAINER_OF(huffman_node, node, node1)->huff,
-                *huff2 = &CONTAINER_OF(huffman_node, node, node2)->huff,
-                *huff_p = &CONTAINER_OF(huffman_node, node, new_node)->huff;
-    // 设置父子关系
-    huff_p->child[LEFT] = huff1;
-    huff_p->child[RIGHT] = huff2;
-    huff1->parent = huff_p;
-    huff2->parent = huff_p;
-    // 计算合并后的权重
-    CONTAINER_OF(huffman_node, huff, huff_p)->weight =
-        CONTAINER_OF(huffman_node, huff, huff1)->weight +
-        CONTAINER_OF(huffman_node, huff, huff2)->weight;
-    // 将新节点插入回优先队列
-    rb_tree_insert(current_heap, new_node, huff_cmp);
-  }
-  // 设置哈夫曼树的根节点
-  target->root = &CONTAINER_OF(huffman_node, node, current_heap->root)->huff;
-}
-
-// 生成每个字符的哈夫曼编码
-void gen_encoder(rb_tree *encoders, binary_tree *huffman_tree) {
-  // 内部函数：为每个encoder设置编码
-  void set_encoder(binary_node * cnode) {
-    sequence_stack st;
-    INIT_SEQUENCE_STACK(char, &st);  // 使用栈逆向存储路径
-    size_t cnt = 0;
-    encoder *e = CONTAINER_OF(encoder, node, cnode);
-    binary_node *hnode = e->node_in_huffman;  // 对应的哈夫曼树节点
-
-    // 从叶子节点回溯到根，记录路径（0/1）
-    while (hnode != huffman_tree->root) {
-      cnt++;
-      binary_node *parent = hnode->parent;
-      if (hnode == parent->child[LEFT]) {
-        SEQUENCE_STACK_PUSH(char, &st, '0');
-      } else if (hnode == parent->child[RIGHT]) {
-        SEQUENCE_STACK_PUSH(char, &st, '1');
-      }
-      hnode = parent;
-    }
-
-    // 将栈中的路径转换为字符串
-    char *res = malloc(cnt + 1);
-    size_t i = 0;
-    while (!sequence_stack_empty(&st)) {
-      res[i] = SEQUENCE_STACK_TOP(char, &st);
-      SEQUENCE_STACK_POP(char, &st);
-      i++;
-    }
-    res[i] = 0;  // 字符串终止符
-    e->code = res;
-    destroy_sequence_stack(&st);
-  }
-  // 遍历所有encoder节点，生成编码
-  binary_tree_traverse(encoders, set_encoder, IN);
-}
-
-// 根据字符获取对应的哈夫曼编码
-char *get_code(rb_tree *encoders, char c) {
-  encoder coder;
-  coder.c = c;
-  // 在红黑树中查找对应字符的encoder节点
-  binary_node *n = rb_tree_find_node(encoders, &coder.node, encoder_cmp);
-  return CONTAINER_OF(encoder, node, n)->code;
-}
-
-// 释放encoder节点中的编码字符串内存
-static inline void free_encoder(binary_node *n) {
-  if (n) {
-    assert(CONTAINER_OF(encoder, node, n)->code);
-    free(CONTAINER_OF(encoder, node, n)->code);
-    CONTAINER_OF(encoder, node, n)->code = NULL;
-  }
-}
-
-// 释放所有资源：哈夫曼树和编码器树
-char *release_resources(binary_tree *encoders, binary_tree *huff) {
-  DESTROY_BINARY_TREE(huffman_node, huff, huff);     // 销毁哈夫曼树
-  binary_tree_traverse(encoders, free_encoder, IN);  // 释放编码字符串
-  DESTROY_BINARY_TREE(encoder, node, encoders);      // 销毁编码器树
-}
-
-int main(void) {
-  size_t num_char;
-  scanf("%lu", &num_char);
-  rb_tree char_tree, weight_heap;  // 字符红黑树和权重优先队列
-  init_rb_tree(&char_tree);
-  init_rb_tree(&weight_heap);
-  binary_node *encoders[num_char];  // 临时存储encoder节点指针
-
-  // 读取所有字符并插入红黑树
-  for (size_t i = 0; i < num_char; i++) {
-    binary_node *to_ins = MAKE_BINARY_NODE(encoder, node);
-    char c;
-    do {
-      scanf("%c", &c);  // 跳过空白字符
-    } while (isspace(c));
-    CONTAINER_OF(encoder, node, to_ins)->c = c;
-    rb_tree_insert(&char_tree, to_ins, encoder_cmp);
-    encoders[i] = to_ins;
-  }
-
-  // 读取每个字符的权重并构建优先队列
-  for (size_t i = 0; i < num_char; i++) {
-    binary_node *to_proc = encoders[i];
-    // 创建对应的哈夫曼节点并初始化权重
-    CONTAINER_OF(encoder, node, to_proc)->node_in_huffman =
-        MAKE_BINARY_NODE(huffman_node, huff);
-    binary_node *node_in_heap =
-        &CONTAINER_OF(huffman_node, huff,
-                      CONTAINER_OF(encoder, node, to_proc)->node_in_huffman)
-             ->node;
-    size_t weight;
-    scanf("%lu", &weight);
-    CONTAINER_OF(huffman_node, node, node_in_heap)->weight = weight;
-    rb_tree_insert(&weight_heap, node_in_heap, huff_cmp);
-  }
-
-  // 构建哈夫曼树并生成编码
-  binary_tree huffman;
-  init_binary_tree(&huffman);
-  construct_huffman_tree(&huffman, &weight_heap);
-  gen_encoder(&char_tree, &huffman);
-
-  // 读取输入字符串并输出编码结果
-  char str[101];
-  scanf("%s", str);
-  size_t len = strlen(str);
-  for (size_t i = 0; i < len; i++) {
-    char c = str[i];
-    char *code = get_code(&char_tree, c);
-    printf("%s", code);
-  }
-  putchar('\n');
-  printf("%s\n", str);  // 输出原字符串（示例用途）
-
-  // 释放所有动态分配的内存
-  release_resources(&char_tree, &huffman);
-}
+// Case 6: remove and rotate.
+// typedef struct Node {
+//   binary_node node;
+//   int key;
+// } Node;
+// int cmp(const binary_node *a, const binary_node *b) {
+//   const Node *pa = CONTAINER_OF(Node, node, a);
+//   const Node *pb = CONTAINER_OF(Node, node, b);
+//   return pa->key - pb->key;
+// }
+// void print_inorder(binary_node *n) {
+//   if (!n) return;
+//   const Node *p = CONTAINER_OF(Node, node, n);
+//   print_inorder(n->child[0]);
+//   printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
+//   print_inorder(n->child[1]);
+// }
+// int main() {
+//   rb_tree tree;
+//   init_rb_tree(&tree);
+//   // 构造较复杂的树：插入 10, 5, 2, 7
+//   int keys[] = {10, 5, 2, 7};
+//   for (int i = 0; i < 4; i++) {
+//     Node *node = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
+//     node->key = keys[i];
+//     rb_tree_insert(&tree, &node->node, cmp);
+//   }
+//   printf("删除前中序: ");
+//   print_inorder(tree.root);
+//   printf("\n");
+//   // 删除节点 5（有两个子节点）
+//   Node temp;
+//   temp.key = 5;
+//   binary_node *removed = rb_tree_remove(&tree, &temp.node, cmp);
+//   if (removed) FREE_BINARY_NODE(Node, node, removed);
+//   printf("删除 5 后中序: ");
+//   print_inorder(tree.root);
+//   printf("\n");
+//   return 0;
+// }
