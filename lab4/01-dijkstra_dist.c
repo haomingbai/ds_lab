@@ -1341,9 +1341,11 @@ int distance_node_cmp(const binary_node *a, const binary_node *b) {
              CONTAINER_OF(distance_node, node, b)->distance) {
     return 1;
   } else {
-    if (CONTAINER_OF(distance_node, node, a)->pos > CONTAINER_OF(distance_node, node, b)->pos) {
+    if (CONTAINER_OF(distance_node, node, a)->pos >
+        CONTAINER_OF(distance_node, node, b)->pos) {
       return -1;
-    } else if (CONTAINER_OF(distance_node, node, a)->pos < CONTAINER_OF(distance_node, node, b)->pos) {
+    } else if (CONTAINER_OF(distance_node, node, a)->pos <
+               CONTAINER_OF(distance_node, node, b)->pos) {
       return 1;
     } else {
       return 0;
@@ -1416,7 +1418,8 @@ int dijkstra(adjacent_list *graph, sequence_list *distance,
         CONTAINER_OF(distance_node, node, node_to_insert)->distance =
             final_dist;
         CONTAINER_OF(distance_node, node, node_to_insert)->pos = to_update;
-        int insert_res = rb_tree_insert(&pqueue, node_to_insert, distance_node_cmp);
+        int insert_res =
+            rb_tree_insert(&pqueue, node_to_insert, distance_node_cmp);
         if (insert_res) {
           FREE_BINARY_NODE(distance_node, node, node_to_insert);
         }
@@ -1445,7 +1448,7 @@ int solve() {
     for (size_t j = 0; j < node_num; j++) {
       DataType length;
       scanf("%lu", &length);
-      adjacent_list_add_edge(&graph, i, j, length);
+      if (length) adjacent_list_add_edge(&graph, i, j, length);
     }
   }
   size_t from = 0;

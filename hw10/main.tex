@@ -1,0 +1,69 @@
+\documentclass{ctexart}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{myorange}{rgb}{0.9,0.4,0}
+\definecolor{mybackground}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{myCstyle}{
+	backgroundcolor=\color{mybackground},
+	commentstyle=\color{mygreen},
+	keywordstyle=\color{blue},
+	numberstyle=\tiny\color{mygray},
+	stringstyle=\color{myorange},
+	basicstyle=\ttfamily\footnotesize,
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=left,
+	numbersep=5pt,
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=2,
+	language=C
+}
+
+\lstdefinestyle{myCPPstyle}{
+	backgroundcolor=\color{mybackground},
+	commentstyle=\color{mygreen},
+	keywordstyle=\color{blue},
+	numberstyle=\tiny\color{mygray},
+	stringstyle=\color{myorange},
+	basicstyle=\ttfamily\footnotesize,
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=left,
+	numbersep=5pt,
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=2,
+	language=C++
+}
+
+\title{Data Structure, HW8}
+
+\author{Haoming Bai, 2023301350}
+
+\begin{document}
+	\maketitle
+  \tableofcontents
+  \section{Problems}
+  \subsection{Problem 1}
+  \lstinputlisting[style=myCstyle, caption={Problem 1: solution}]{./a.c}
+  \subsection{Problem 2}
+  \lstinputlisting[style=myCstyle, caption={Problem 2: solution}]{./b.cpp}
+  \subsection{Problem 3}
+  \lstinputlisting[style=myCstyle, caption={Problem 3: solution}]{./c.cpp}
+  \subsection{Problem 4}
+  \lstinputlisting[style=myCstyle, caption={Problem 4: solution}]{./d.cpp}
+  \subsection{Problem 5}
+  \lstinputlisting[style=myCstyle, caption={Problem 5: solution}]{./e.cpp}
+\end{document}

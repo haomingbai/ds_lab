@@ -17,9 +17,7 @@ typedef struct sequence_list {
   size_t capacity;
 } sequence_list;
 
-size_t sequence_list_size(sequence_list *lst) {
-  return lst->size;
-}
+size_t sequence_list_size(sequence_list *lst) { return lst->size; }
 
 #define INIT_SEQUENCE_LIST(TYPE, LIST_PTR) \
   do {                                     \
@@ -251,6 +249,13 @@ void destroy_sequence_stack(sequence_stack *stack) {
 
 bool sequence_stack_empty(sequence_stack *stack) {
   return sequence_list_empty(stack);
+}
+
+int main() {
+  sequence_list lst;
+  INIT_SEQUENCE_LIST(int, &lst);
+  SEQUENCE_LIST_PUSH_BACK(int, &lst, 1);
+  printf("%d\n", SEQUENCE_LIST_REFERENCE(int, &lst, 0));
 }
 
 #endif
