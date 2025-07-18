@@ -7,50 +7,40 @@
 #include <stdlib.h>
 #include <string.h>
 
-// GNU C 扩展 Likely 分支预测优化支持
 #ifdef __GNUC__
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
-// 容器支持, 帮助实现侵入式数据结构
 #define CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR) \
   ((NODE_TYPE *)((char *)(NODE_PTR) - (offsetof(NODE_TYPE, MEMBER))))
 
-// 结构体定义
 typedef struct binary_node binary_node;
 typedef binary_node binary_node;
 
-// 树旋转方向和颜色支持
 enum direction { LEFT = 0, RIGHT = 1 };
 enum color { RED = 0, BLACK = 1 };
 
-// 红黑树和二叉树节点
 struct binary_node {
   binary_node *parent;
   binary_node *child[2];
   enum color color;
 };
 
-// 二叉树的遍历顺序.
 enum traverse_order { PRE, IN, POST };
 
-// 二叉树类定义
 typedef struct binary_tree {
   binary_node *root;
   size_t size;
 } binary_tree;
 
-// 内部别名定义
 typedef binary_tree bTree;
 
-// 构造函数定义
 int init_binary_tree(binary_tree *tree) {
   tree->size = 0, tree->root = NULL;
   return 0;
 }
 
-// 二叉树生成函数定义, 方便在堆上直接构建红黑树
 binary_tree *make_binary_tree() {
   bTree *tree = (bTree *)malloc(sizeof(bTree));
 #ifdef __GNUC__
@@ -64,7 +54,6 @@ binary_tree *make_binary_tree() {
   return tree;
 }
 
-// 二叉树的插入, 注意不会改变二叉树存储的大小, 大小信息请手动更新
 // Notice: this function will never update the size of the tree for it is not
 // efficient enough to be integrated and in different cases there exists many of
 // different occasions.
@@ -97,10 +86,6 @@ binary_node *binary_tree_insert(binary_tree *tree, binary_node *node,
   }
 }
 
-// 工具函数: 二叉树的移植. 移植功能在二叉树的构造中及其重要.
-// 一个最小化功能的移植应当是单项的. 即在移植过程中,
-// 新节点会被放置在旧节点的位置, 即所在位置的父节点的儿子需要是新节点,
-// 但是新节点的父亲并没有被设置成旧节点.
 binary_node *binary_tree_transplant(binary_tree *tree, binary_node *old_node,
                                     binary_node *new_node) {
   binary_node *parent = old_node->parent;
@@ -108,11 +93,9 @@ binary_node *binary_tree_transplant(binary_tree *tree, binary_node *old_node,
     new_node->parent = parent;
   }
   if (parent == NULL) {
-    // 移植的位置在树根
     assert(tree->root == old_node);
     tree->root = new_node;
   } else {
-    // 移植在树枝或者树干
     assert(tree->root != old_node);
     if (parent->child[LEFT] == old_node) {
       parent->child[LEFT] = new_node;
@@ -125,10 +108,7 @@ binary_node *binary_tree_transplant(binary_tree *tree, binary_node *old_node,
   return old_node;
 }
 
-// 带有偏移量的内存分配函数, 使用malloc实现,
-// 但是同时考虑到侵入式数据结构经常需要返回偏移地址的特性. 这个函数不对外暴露,
-// 仅供内部使用.
-static inline void *__alloc_with_offset(size_t size, size_t offset) {
+void *__alloc_with_offset(size_t size, size_t offset) {
   void *ptr = malloc(size);
 #ifdef __GNUC__
   if (likely(ptr)) {
@@ -141,26 +121,67 @@ static inline void *__alloc_with_offset(size_t size, size_t offset) {
   }
 }
 
-// 创造新节点
 #define MAKE_BINARY_NODE(NODE_TYPE, MEMBER)              \
   ((binary_node *)__alloc_with_offset(sizeof(NODE_TYPE), \
                                       offsetof(NODE_TYPE, MEMBER)))
 
-// 释放旧节点
 #define FREE_BINARY_NODE(NODE_TYPE, MEMBER, NODE_PTR) \
   (free(CONTAINER_OF(NODE_TYPE, MEMBER, NODE_PTR)))
 
-// 交换左右孩子
+void binary_node_traverse(binary_node *node, void (*func)(binary_node *),
+                          enum traverse_order order) {
+  switch (order) {
+    case PRE:
+      func(node);
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      break;
+    case POST:
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      func(node);
+      break;
+    case IN:
+      if (node->child[LEFT] != NULL) {
+        binary_node_traverse(node->child[LEFT], func, order);
+      }
+      func(node);
+      if (node->child[RIGHT] != NULL) {
+        binary_node_traverse(node->child[RIGHT], func, order);
+      }
+      break;
+  }
+}
+
+void binary_tree_traverse(binary_tree *tree, void (*func)(binary_node *),
+                          enum traverse_order order) {
+  if (tree->root == NULL) {
+    return;
+  } else {
+    binary_node_traverse(tree->root, func, order);
+  }
+}
+
 void binary_node_switch_order(binary_node *node) {
   binary_node *tmp = node->child[LEFT];
   node->child[LEFT] = node->child[RIGHT];
   node->child[RIGHT] = tmp;
 }
 
-// 定义"最大"
+void binary_tree_reverse(binary_tree *tree) {
+  binary_tree_traverse(tree, binary_node_switch_order, POST);
+}
+
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-// 确定二叉树树高
 size_t binary_node_height(binary_node *node) {
   if (node == NULL) {
     return 0;
@@ -176,7 +197,6 @@ size_t binary_tree_height(binary_tree *tree) {
   return res;
 }
 
-// 直接获取二叉树高度, 请在二叉树高度有人维护的前提下使用.
 size_t binary_tree_get_size(binary_tree *tree) { return tree->size; }
 
 size_t binary_node_get_size(binary_node *root) {
@@ -187,7 +207,6 @@ size_t binary_node_get_size(binary_node *root) {
          binary_node_get_size(root->child[RIGHT]);
 }
 
-// 二叉树获取树大小
 size_t binary_tree_update_size(binary_tree *tree) {
   size_t res = binary_node_get_size(tree->root);
   tree->size = res;
@@ -199,7 +218,6 @@ size_t binary_tree_gen_size(binary_tree *tree) {
   return res;
 }
 
-// 内存释放函数...
 void __release_with_offset(void *ptr, size_t offset) {
   if (ptr == NULL) {
     return;
@@ -207,7 +225,6 @@ void __release_with_offset(void *ptr, size_t offset) {
   free((void *)((char *)ptr - offset));
 }
 
-// 内存释放函数
 void __free_binary_root_with_offset(binary_node *root, size_t offset) {
   if (root == NULL) {
     return;
@@ -217,23 +234,19 @@ void __free_binary_root_with_offset(binary_node *root, size_t offset) {
   __release_with_offset(root, offset);
 }
 
-// 销毁侵入式二叉树
 #define DESTROY_BINARY_TREE(NODE_TYPE, MEMBER, TREE_PTR) \
   __free_binary_root_with_offset(((TREE_PTR)->root),     \
                                  (offsetof(NODE_TYPE, MEMBER)))
 
-// 工具函数: 二叉树的旋转
 int binary_tree_rotate(binary_tree *tree, binary_node *node,
                        enum direction dir) {
   if (node == NULL || tree == NULL) {
     return -1;
   }
-  // 旋转节点是树根
   if (node->parent == NULL) {
     assert(node == tree->root);
 
     switch (dir) {
-      // 左旋代码
       case LEFT: {
         if (node->child[RIGHT] == NULL) {
           return -2;
@@ -249,13 +262,11 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
         if (child_to_swap != NULL) {
           child_to_swap->parent = old_root;
         }
-        // 悬挂新节点
         old_root->parent = new_root;
         new_root->parent = NULL;
 
         return 0;
       }
-      // 右旋代码
       case RIGHT: {
         if (node->child[LEFT] == NULL) {
           return -2;
@@ -271,7 +282,6 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
         if (child_to_swap != NULL) {
           child_to_swap->parent = old_root;
         }
-        // 悬挂新节点
         old_root->parent = new_root;
         new_root->parent = NULL;
 
@@ -282,7 +292,6 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
       }
     }
   }
-  // 旋转节点不是树根
   switch (dir) {
     case LEFT: {
       if (node->child[RIGHT] == NULL) {
@@ -344,54 +353,199 @@ int binary_tree_rotate(binary_tree *tree, binary_node *node,
   }
 }
 
-void binary_node_traverse(binary_node *node, void (*func)(binary_node *),
-                          enum traverse_order order) {
-  switch (order) {
-    case PRE:
-      func(node);
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      break;
-    case POST:
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      func(node);
-      break;
-    case IN:
-      if (node->child[LEFT] != NULL) {
-        binary_node_traverse(node->child[LEFT], func, order);
-      }
-      func(node);
-      if (node->child[RIGHT] != NULL) {
-        binary_node_traverse(node->child[RIGHT], func, order);
-      }
-      break;
-  }
-}
-
-// 反转二叉树功能
-void binary_tree_traverse(binary_tree *tree, void (*func)(binary_node *),
-                          enum traverse_order order) {
-  if (tree->root == NULL) {
-    return;
+binary_node *binary_node_find_lowest_ancestor(binary_node *root,
+                                              binary_node *node1,
+                                              binary_node *node2) {
+  if (root == NULL) {
+    return NULL;
+  } else if (root == node1 || root == node2) {
+    return root;
   } else {
-    binary_node_traverse(tree->root, func, order);
+    binary_node *left = binary_node_find_lowest_ancestor(root->child[LEFT],
+                                                         node1, node2),
+                *right = binary_node_find_lowest_ancestor(root->child[RIGHT],
+                                                          node1, node2);
+    if (left && right) {
+      return root;
+    } else {
+      if (left) {
+        return left;
+      } else if (right) {
+        return right;
+      } else {
+        return NULL;
+      }
+    }
   }
 }
 
-// 二叉搜索树, 类声明和定义
+binary_node *binary_tree_find_lowest_ancestor(binary_tree *tree,
+                                              binary_node *node1,
+                                              binary_node *node2) {
+  assert(binary_tree_gen_size(tree) >= 2);
+  return binary_node_find_lowest_ancestor(tree->root, node1, node2);
+}
+
+#ifdef ENABLE_QUEUE
+
+#include "./linked_list.c"
+
+void binary_node_level_order(binary_node *root, void (*func)(binary_node *)) {
+  typedef struct {
+    binary_node *target;
+    intrusive_node node;
+  } bfs_node;
+  linked_queue queue;
+  init_linked_queue(&queue);
+  intrusive_node *nRoot = MAKE_NODE(bfs_node, node);
+  CONTAINER_OF(bfs_node, node, nRoot)->target = root;
+  linked_queue_push(&queue, nRoot);
+  nRoot = NULL;
+  while (!linked_queue_empty(&queue)) {
+    intrusive_node *node_to_proc = linked_queue_pop(&queue);
+
+    func(CONTAINER_OF(bfs_node, node, node_to_proc)->target);
+    if (CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[LEFT] !=
+        NULL) {
+      intrusive_node *nNode = MAKE_NODE(bfs_node, node);
+      CONTAINER_OF(bfs_node, node, nNode)->target =
+          CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[LEFT];
+      linked_queue_push(&queue, nNode);
+    }
+    if (CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[RIGHT] !=
+        NULL) {
+      intrusive_node *nNode = MAKE_NODE(bfs_node, node);
+      CONTAINER_OF(bfs_node, node, nNode)->target =
+          CONTAINER_OF(bfs_node, node, node_to_proc)->target->child[RIGHT];
+      linked_queue_push(&queue, nNode);
+    }
+    RELEASE_NODE(bfs_node, node, node_to_proc);
+  }
+}
+
+#endif
+
+binary_node *construct_binary_tree(binary_node **node_list_mid,
+                                   binary_node **node_list, size_t len,
+                                   enum traverse_order seq) {
+  switch (seq) {
+    case PRE: {
+      if (len < 1) {
+        return NULL;
+      }
+      binary_node *root = node_list[0];
+      if (len == 1) {
+        root->child[LEFT] = NULL;
+        root->child[RIGHT] = NULL;
+        return root;
+      }
+      size_t pos;
+      for (pos = 0; pos < len; pos++) {
+        if (node_list_mid[pos] == root) {
+          break;
+        }
+      }
+      root->child[LEFT] =
+          construct_binary_tree(node_list_mid, node_list + 1, pos, seq);
+      root->child[RIGHT] = construct_binary_tree(
+          node_list_mid + pos + 1, node_list + pos + 1, len - pos - 1, seq);
+      return root;
+    }
+    case POST: {
+      if (len < 1) {
+        return NULL;
+      }
+      binary_node *root = node_list[len - 1];
+      if (len == 1) {
+        root->child[LEFT] = NULL;
+        root->child[RIGHT] = NULL;
+        return root;
+      }
+      size_t pos;
+      for (pos = 0; pos < len; pos++) {
+        if (node_list_mid[pos] == root) {
+          break;
+        }
+      }
+      root->child[LEFT] =
+          construct_binary_tree(node_list_mid, node_list, pos, seq);
+      root->child[RIGHT] = construct_binary_tree(
+          node_list_mid + pos + 1, node_list + pos, len - pos - 1, seq);
+      return root;
+    }
+    case IN: {
+      assert(0);
+    }
+    default: {
+      assert(0);
+    }
+  }
+}
+
+struct _internal_node_pair {
+  binary_node *first, *second;
+};
+
+static inline struct _internal_node_pair _bst_small_big(
+    binary_node *root, int (*cmp)(const binary_node *, const binary_node *)) {
+  struct _internal_node_pair res = {NULL, NULL};
+  if (root == NULL) {
+    return (struct _internal_node_pair){.first = NULL, .second = NULL};
+  }
+
+  if (root->child[LEFT]) {
+    struct _internal_node_pair left_pair =
+        _bst_small_big(root->child[LEFT], cmp);
+    if (left_pair.first == NULL || left_pair.second == NULL) {
+      return (struct _internal_node_pair){.first = NULL, .second = NULL};
+    } else if (cmp(left_pair.second, root) >= 0) {
+      return (struct _internal_node_pair){NULL, NULL};
+    } else {
+      res.first = left_pair.first;
+    }
+  } else {
+    res.first = root;
+  }
+
+  if (root->child[RIGHT]) {
+    struct _internal_node_pair right_pair =
+        _bst_small_big(root->child[RIGHT], cmp);
+    if (right_pair.first == NULL || right_pair.second == NULL) {
+      return (struct _internal_node_pair){NULL, NULL};
+    } else if (cmp(root, right_pair.first) >= 0) {
+      return (struct _internal_node_pair){NULL, NULL};
+    } else {
+      res.second = right_pair.second;
+    }
+  } else {
+    res.second = root;
+  }
+
+  return res;
+}
+
+bool binary_node_is_bst_root(binary_node *root,
+                             int (*cmp)(const binary_node *,
+                                        const binary_node *)) {
+  if (root == NULL) {
+    return true;
+  }
+
+  struct _internal_node_pair node = _bst_small_big(root, cmp);
+  if (node.first == NULL || node.second == NULL) {
+    return false;
+  }
+  return true;
+}
+
+bool binary_tree_is_bst(binary_tree *tree,
+                        int (*cmp)(const binary_node *, const binary_node *)) {
+  return binary_node_is_bst_root(tree->root, cmp);
+}
+
 typedef binary_tree bst;
 typedef binary_node bst_node;
 
-// 二叉搜索树的CURD和构造函数
 int init_bst(bst *tree) { return init_binary_tree(tree); }
 
 int bst_insert(bst *tree, bst_node *node,
@@ -430,7 +584,6 @@ int bst_insert(bst *tree, bst_node *node,
   }
 }
 
-// 在二叉搜索树中找到某个节点, 如果不存在返回`NULL`
 bst_node *bst_find(bst *tree, bst_node *node,
                    int (*cmp)(const bst_node *, const bst_node *)) {
   if (!binary_tree_get_size(tree)) {
@@ -454,7 +607,7 @@ bst_node *bst_find(bst *tree, bst_node *node,
   return curr;
 }
 
-// Be careful to use
+// Be careful to use this func...
 bst_node *bst_remove(bst *tree, bst_node *node,
                      int (*cmp)(const bst_node *, const bst_node *)) {
   bst_node *node_to_remove = bst_find(tree, node, cmp);
@@ -585,7 +738,6 @@ bst_node *bst_remove(bst *tree, bst_node *node,
   }
 }
 
-// 获得树中的最小节点.
 binary_node *bst_get_smallest(binary_tree *tree) {
   binary_node *it = tree->root;
   if (!it) {
@@ -597,7 +749,6 @@ binary_node *bst_get_smallest(binary_tree *tree) {
   return it;
 }
 
-// 获得二叉搜索树中的最大节点
 binary_node *bst_get_greatest(binary_tree *tree) {
   binary_node *it = tree->root;
   if (!it) {
@@ -663,7 +814,7 @@ static inline void _rbTree_set_insert_balance(rb_tree *tree,
     _rbTree_set_insert_balance(tree, grandpa);
   } else if (_rbTree_color(node->parent) == RED &&
              _rbTree_color(_rbTree_get_uncle(node)) == BLACK) {
-    binary_node *parent = node->parent, *uncle = _rbTree_get_uncle(node),
+    binary_node *parent = node->parent,
                 *grandpa = _rbTree_get_grandpa(node);
     if (parent == grandpa->child[LEFT] && node == parent->child[RIGHT]) {
       binary_tree_rotate(tree, parent, LEFT);
@@ -762,55 +913,71 @@ static inline void _rbTree_switch_color(binary_node *node1,
 // Direction is the direction of the removed node.
 static inline void _rbTreeRemoveMaintain(rb_tree *tree, binary_node *parent,
                                          enum direction dir) {
-  binary_node *bro = parent->child[dir == LEFT ? RIGHT : LEFT];
-  binary_node *close_nephew = NULL, *dist_nephew = NULL;
-  if (bro) {
-    close_nephew = bro->child[dir],
-    dist_nephew = bro->child[dir == LEFT ? RIGHT : LEFT];
-  }
+  // --- 开始修改: 添加 while 循环 ---
+  while (parent) {
+    binary_node *bro = parent->child[dir == LEFT ? RIGHT : LEFT];
+    binary_node *close_nephew = NULL, *dist_nephew = NULL;
+    if (bro) {
+      close_nephew = bro->child[dir],
+      dist_nephew = bro->child[dir == LEFT ? RIGHT : LEFT];
+    }
 
-  // 5 cases.
-  // Case 1: color of bro is red.
-  if (_rbTree_color(bro) == RED) {
-    assert(parent->color == BLACK);
-    binary_tree_rotate(tree, parent, dir);
-    parent->color = RED;
-    bro->color = BLACK;
-  }
-  // Case 2: color of brother and both nephews are black while parent is black
-  else if (_rbTree_color(bro) == BLACK &&
-           _rbTree_color(close_nephew) == BLACK &&
-           _rbTree_color(dist_nephew) == BLACK &&
-           _rbTree_color(parent) == RED) {
-    bro->color = RED;
-    parent->color = BLACK;
-  }
-  // Case 3: color of brother, both nephews and parent are all black.
-  else if (_rbTree_color(bro) == BLACK &&
-           _rbTree_color(close_nephew) == BLACK &&
-           _rbTree_color(dist_nephew) == BLACK &&
-           _rbTree_color(parent) == BLACK) {
-    bro->color = RED;
-  }
-  // Case 4:
-  else if (_rbTree_color(bro) == BLACK && _rbTree_color(close_nephew) == RED &&
-           _rbTree_color(dist_nephew) == BLACK) {
-    enum direction rotate_dir = (dir == LEFT ? RIGHT : LEFT);
-    binary_tree_rotate(tree, bro, rotate_dir);
-    close_nephew->color = BLACK;
-    bro->color = RED;
-    dist_nephew = bro;
-    bro = close_nephew;
-    close_nephew = bro->child[dir];
-    goto start_case_5;
-  }
-  // Case 5:
-  else if (_rbTree_color(bro) == BLACK && _rbTree_color(dist_nephew) == RED) {
-  start_case_5:
-    binary_tree_rotate(tree, parent, dir);
-    dist_nephew->color = BLACK;
-    _rbTree_switch_color(parent, bro);
-  }
+    if (_rbTree_color(bro) == RED) {
+      // Case 1: 兄弟节点是红色
+      assert(parent->color == BLACK);
+      binary_tree_rotate(tree, parent, dir);
+      parent->color = RED;
+      bro->color = BLACK;
+      // 结构已改变，从相同的 parent 位置重新判断
+      continue;
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(close_nephew) == BLACK &&
+               _rbTree_color(dist_nephew) == BLACK &&
+               _rbTree_color(parent) == RED) {
+      // Case 2: 兄弟和侄子都黑，父节点是红色
+      bro->color = RED;
+      parent->color = BLACK;
+      break;  // 修复完成
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(close_nephew) == BLACK &&
+               _rbTree_color(dist_nephew) == BLACK &&
+               _rbTree_color(parent) == BLACK) {
+      // Case 3: 兄弟、侄子、父节点都黑
+      bro->color = RED;
+      // 问题向上传播
+      if (parent->parent) {
+        dir = (parent == parent->parent->child[LEFT] ? LEFT : RIGHT);
+        parent = parent->parent;
+        continue;  // 继续对新的父节点进行修复
+      } else {
+        // 到达根节点，结束
+        break;
+      }
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(close_nephew) == RED &&
+               _rbTree_color(dist_nephew) == BLACK) {
+      // Case 4: 近侄子是红色
+      enum direction rotate_dir = (dir == LEFT ? RIGHT : LEFT);
+      binary_tree_rotate(tree, bro, rotate_dir);
+      close_nephew->color = BLACK;
+      bro->color = RED;
+      dist_nephew = bro;
+      bro = close_nephew;
+      close_nephew = bro->child[dir];
+      goto start_case_5;  // 维持原有逻辑，跳转到 Case 5
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(dist_nephew) == RED) {
+    // Case 5: 远侄子是红色
+    start_case_5:
+      binary_tree_rotate(tree, parent, dir);
+      dist_nephew->color = BLACK;
+      _rbTree_switch_color(parent, bro);
+      break;  // 修复完成
+    } else {
+      // 无法处理的未知情况或已修复，退出
+      break;
+    }
+  }  // --- 结束修改: while 循环 ---
 }
 
 binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
@@ -849,31 +1016,32 @@ binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
   else if (to_remove->child[LEFT] && to_remove->child[RIGHT]) {
     binary_node *y = _findSuccessor(to_remove);
     enum color y_original_color = y->color;
-    binary_node *x = NULL;
+
+    binary_node *fixup_parent;
+    enum direction fixup_dir;
 
     if (y->parent != to_remove) {
-      // y is not the direct right child of to_remove
-      x = y->child[RIGHT];
-      binary_tree_transplant(tree, y, y->child[RIGHT]);  // 将 y 与它的右子替换
-      if (x) x->parent = y->parent;                      // 维护 x 的 parent
+      // y 不是 to_remove 的直接子节点
+      fixup_parent = y->parent;
+      fixup_dir = (y == fixup_parent->child[LEFT] ? LEFT : RIGHT);
+
+      binary_tree_transplant(tree, y, y->child[RIGHT]);
       y->child[RIGHT] = to_remove->child[RIGHT];
       if (y->child[RIGHT]) y->child[RIGHT]->parent = y;
     } else {
-      // y is the direct right child of to_remove
-      x = y->child[RIGHT];  // 可能为 NULL 或红色子节点
+      // y 是 to_remove 的直接子节点
+      fixup_parent = y;
+      fixup_dir = RIGHT;
     }
 
-    // Substitute to_remove to y
     binary_tree_transplant(tree, to_remove, y);
     y->child[LEFT] = to_remove->child[LEFT];
     if (y->child[LEFT]) y->child[LEFT]->parent = y;
     y->color = to_remove->color;
 
-    // If the original color of y is black, then make a double black repair for
-    // x.
     if (y_original_color == BLACK) {
-      _rbTreeRemoveMaintain(tree, x ? x->parent : NULL,
-                            x && x == x->parent->child[LEFT] ? LEFT : RIGHT);
+      // 使用预先保存的安全的父节点和方向进行修复
+      _rbTreeRemoveMaintain(tree, fixup_parent, fixup_dir);
     }
   }
   // Case 3: node has child on the left

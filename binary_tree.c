@@ -372,7 +372,7 @@ binary_node *binary_node_find_lowest_ancestor(binary_node *root,
       } else if (right) {
         return right;
       } else {
-        assert(0);
+        return NULL;
       }
     }
   }
@@ -813,7 +813,7 @@ static inline void _rbTree_set_insert_balance(rb_tree *tree,
     _rbTree_set_insert_balance(tree, grandpa);
   } else if (_rbTree_color(node->parent) == RED &&
              _rbTree_color(_rbTree_get_uncle(node)) == BLACK) {
-    binary_node *parent = node->parent, *uncle = _rbTree_get_uncle(node),
+    binary_node *parent = node->parent,
                 *grandpa = _rbTree_get_grandpa(node);
     if (parent == grandpa->child[LEFT] && node == parent->child[RIGHT]) {
       binary_tree_rotate(tree, parent, LEFT);
@@ -912,55 +912,71 @@ static inline void _rbTree_switch_color(binary_node *node1,
 // Direction is the direction of the removed node.
 static inline void _rbTreeRemoveMaintain(rb_tree *tree, binary_node *parent,
                                          enum direction dir) {
-  binary_node *bro = parent->child[dir == LEFT ? RIGHT : LEFT];
-  binary_node *close_nephew = NULL, *dist_nephew = NULL;
-  if (bro) {
-    close_nephew = bro->child[dir],
-    dist_nephew = bro->child[dir == LEFT ? RIGHT : LEFT];
-  }
+  // --- 开始修改: 添加 while 循环 ---
+  while (parent) {
+    binary_node *bro = parent->child[dir == LEFT ? RIGHT : LEFT];
+    binary_node *close_nephew = NULL, *dist_nephew = NULL;
+    if (bro) {
+      close_nephew = bro->child[dir],
+      dist_nephew = bro->child[dir == LEFT ? RIGHT : LEFT];
+    }
 
-  // 5 cases.
-  // Case 1: color of bro is red.
-  if (_rbTree_color(bro) == RED) {
-    assert(parent->color == BLACK);
-    binary_tree_rotate(tree, parent, dir);
-    parent->color = RED;
-    bro->color = BLACK;
-  }
-  // Case 2: color of brother and both nephews are black while parent is black
-  else if (_rbTree_color(bro) == BLACK &&
-           _rbTree_color(close_nephew) == BLACK &&
-           _rbTree_color(dist_nephew) == BLACK &&
-           _rbTree_color(parent) == RED) {
-    bro->color = RED;
-    parent->color = BLACK;
-  }
-  // Case 3: color of brother, both nephews and parent are all black.
-  else if (_rbTree_color(bro) == BLACK &&
-           _rbTree_color(close_nephew) == BLACK &&
-           _rbTree_color(dist_nephew) == BLACK &&
-           _rbTree_color(parent) == BLACK) {
-    bro->color = RED;
-  }
-  // Case 4:
-  else if (_rbTree_color(bro) == BLACK && _rbTree_color(close_nephew) == RED &&
-           _rbTree_color(dist_nephew) == BLACK) {
-    enum direction rotate_dir = (dir == LEFT ? RIGHT : LEFT);
-    binary_tree_rotate(tree, bro, rotate_dir);
-    close_nephew->color = BLACK;
-    bro->color = RED;
-    dist_nephew = bro;
-    bro = close_nephew;
-    close_nephew = bro->child[dir];
-    goto start_case_5;
-  }
-  // Case 5:
-  else if (_rbTree_color(bro) == BLACK && _rbTree_color(dist_nephew) == RED) {
-  start_case_5:
-    binary_tree_rotate(tree, parent, dir);
-    dist_nephew->color = BLACK;
-    _rbTree_switch_color(parent, bro);
-  }
+    if (_rbTree_color(bro) == RED) {
+      // Case 1: 兄弟节点是红色
+      assert(parent->color == BLACK);
+      binary_tree_rotate(tree, parent, dir);
+      parent->color = RED;
+      bro->color = BLACK;
+      // 结构已改变，从相同的 parent 位置重新判断
+      continue;
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(close_nephew) == BLACK &&
+               _rbTree_color(dist_nephew) == BLACK &&
+               _rbTree_color(parent) == RED) {
+      // Case 2: 兄弟和侄子都黑，父节点是红色
+      bro->color = RED;
+      parent->color = BLACK;
+      break;  // 修复完成
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(close_nephew) == BLACK &&
+               _rbTree_color(dist_nephew) == BLACK &&
+               _rbTree_color(parent) == BLACK) {
+      // Case 3: 兄弟、侄子、父节点都黑
+      bro->color = RED;
+      // 问题向上传播
+      if (parent->parent) {
+        dir = (parent == parent->parent->child[LEFT] ? LEFT : RIGHT);
+        parent = parent->parent;
+        continue;  // 继续对新的父节点进行修复
+      } else {
+        // 到达根节点，结束
+        break;
+      }
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(close_nephew) == RED &&
+               _rbTree_color(dist_nephew) == BLACK) {
+      // Case 4: 近侄子是红色
+      enum direction rotate_dir = (dir == LEFT ? RIGHT : LEFT);
+      binary_tree_rotate(tree, bro, rotate_dir);
+      close_nephew->color = BLACK;
+      bro->color = RED;
+      dist_nephew = bro;
+      bro = close_nephew;
+      close_nephew = bro->child[dir];
+      goto start_case_5;  // 维持原有逻辑，跳转到 Case 5
+    } else if (_rbTree_color(bro) == BLACK &&
+               _rbTree_color(dist_nephew) == RED) {
+    // Case 5: 远侄子是红色
+    start_case_5:
+      binary_tree_rotate(tree, parent, dir);
+      dist_nephew->color = BLACK;
+      _rbTree_switch_color(parent, bro);
+      break;  // 修复完成
+    } else {
+      // 无法处理的未知情况或已修复，退出
+      break;
+    }
+  }  // --- 结束修改: while 循环 ---
 }
 
 binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
@@ -999,31 +1015,32 @@ binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
   else if (to_remove->child[LEFT] && to_remove->child[RIGHT]) {
     binary_node *y = _findSuccessor(to_remove);
     enum color y_original_color = y->color;
-    binary_node *x = NULL;
+
+    binary_node *fixup_parent;
+    enum direction fixup_dir;
 
     if (y->parent != to_remove) {
-      // y is not the direct right child of to_remove
-      x = y->child[RIGHT];
-      binary_tree_transplant(tree, y, y->child[RIGHT]);  // 将 y 与它的右子替换
-      if (x) x->parent = y->parent;                      // 维护 x 的 parent
+      // y 不是 to_remove 的直接子节点
+      fixup_parent = y->parent;
+      fixup_dir = (y == fixup_parent->child[LEFT] ? LEFT : RIGHT);
+
+      binary_tree_transplant(tree, y, y->child[RIGHT]);
       y->child[RIGHT] = to_remove->child[RIGHT];
       if (y->child[RIGHT]) y->child[RIGHT]->parent = y;
     } else {
-      // y is the direct right child of to_remove
-      x = y->child[RIGHT];  // 可能为 NULL 或红色子节点
+      // y 是 to_remove 的直接子节点
+      fixup_parent = y;
+      fixup_dir = RIGHT;
     }
 
-    // Substitute to_remove to y
     binary_tree_transplant(tree, to_remove, y);
     y->child[LEFT] = to_remove->child[LEFT];
     if (y->child[LEFT]) y->child[LEFT]->parent = y;
     y->color = to_remove->color;
 
-    // If the original color of y is black, then make a double black repair for
-    // x.
     if (y_original_color == BLACK) {
-      _rbTreeRemoveMaintain(tree, x ? x->parent : NULL,
-                            x && x == x->parent->child[LEFT] ? LEFT : RIGHT);
+      // 使用预先保存的安全的父节点和方向进行修复
+      _rbTreeRemoveMaintain(tree, fixup_parent, fixup_dir);
     }
   }
   // Case 3: node has child on the left
@@ -1051,198 +1068,3 @@ binary_node *rb_tree_remove(rb_tree *tree, binary_node *node,
   to_remove->child[RIGHT] = NULL;
   return to_remove;
 }
-
-// Test code
-
-// Case 1: Insert and delete
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 插入节点 10, 5, 15
-//     binary_node *b1 = MAKE_BINARY_NODE(Node, node); Node *n1 =
-//     CONTAINER_OF(Node, node, b1); n1->key = 10; rb_tree_insert(&tree, b1,
-//     cmp); binary_node *b2 = MAKE_BINARY_NODE(Node, node); Node *n2 =
-//     CONTAINER_OF(Node, node, b2); n2->key = 5; rb_tree_insert(&tree, b2,
-//     cmp); binary_node *b3 = MAKE_BINARY_NODE(Node, node); Node *n3 =
-//     CONTAINER_OF(Node, node, b3); n3->key = 15; rb_tree_insert(&tree, b3,
-//     cmp); printf("插入后中序: "); binary_tree_traverse(&tree, print_inorder,
-//     IN); printf("\n");
-//     // 删除节点 5
-//     Node temp; temp.key = 5; binary_node *removed = rb_tree_remove(&tree,
-//     &temp.node, cmp); if (removed) FREE_BINARY_NODE(Node, node, removed);
-//     printf("删除后中序: ");
-//     binary_tree_traverse(&tree, print_inorder, IN);
-//     printf("\n");
-//     return 0;
-// }
-
-// Case 2: rotate
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_preorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_preorder(n->child[0]);
-//     print_preorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 插入节点 1, 2, 3（单侧插入引发平衡操作）
-//     Node *n1 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n1->key = 1; rb_tree_insert(&tree, &n1->node, cmp); Node *n2 =
-//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n2->key = 2;
-//     rb_tree_insert(&tree, &n2->node, cmp);
-//     Node *n3 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n3->key = 3; rb_tree_insert(&tree, &n3->node, cmp); printf("插入 1,2,3
-//     后先序: "); print_preorder(tree.root); printf("\n"); return 0;
-// }
-
-// Case 3: rotate in different direction
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_preorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_preorder(n->child[0]);
-//     print_preorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 插入节点 1, 3, 2（交叉插入引发双旋）
-//     Node *n1 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n1->key = 1; rb_tree_insert(&tree, &n1->node, cmp); Node *n3 =
-//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n3->key = 3;
-//     rb_tree_insert(&tree, &n3->node, cmp);
-//     Node *n2 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n2->key = 2; rb_tree_insert(&tree, &n2->node, cmp); printf("插入 1,3,2
-//     后先序: "); print_preorder(tree.root); printf("\n"); return 0;
-// }
-
-// Case 4: insert continuously
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     print_inorder(n->child[0]);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_inorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 连续插入 1 到 7
-//     for (int i = 1; i <= 7; i++) {
-//         Node *node = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//         node->key = i;
-//         rb_tree_insert(&tree, &node->node, cmp);
-//     }
-//     printf("连续插入 1..7 后中序: ");
-//     print_inorder(tree.root);
-//     printf("\n");
-//     return 0;
-// }
-
-// Case 5: remove root, not passed
-// typedef struct Node { binary_node node; int key; } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//     const Node *pa = CONTAINER_OF(Node, node, a);
-//     const Node *pb = CONTAINER_OF(Node, node, b);
-//     return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//     if (!n) return;
-//     const Node *p = CONTAINER_OF(Node, node, n);
-//     print_inorder(n->child[0]);
-//     printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//     print_inorder(n->child[1]);
-// }
-// int main() {
-//     rb_tree tree;
-//     init_rb_tree(&tree);
-//     // 构造三节点树并删除根节点
-//     Node *n10 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n10->key = 10; rb_tree_insert(&tree, &n10->node, cmp); Node *n5 =
-//     CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node)); n5->key = 5;
-//     rb_tree_insert(&tree, &n5->node, cmp);
-//     Node *n15 = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     n15->key = 15; rb_tree_insert(&tree, &n15->node, cmp);
-//     printf("删除前中序: ");
-//     print_inorder(tree.root);
-//     printf("\n");
-//     // 删除根节点 10
-//     Node temp; temp.key = 10;
-//     binary_node *removed = rb_tree_remove(&tree, &temp.node, cmp);
-//     if (removed) FREE_BINARY_NODE(Node, node, removed);
-//     printf("删除 10 后中序: ");
-//     print_inorder(tree.root);
-//     printf("\n");
-//     return 0;
-// }
-
-// Case 6: remove and rotate.
-// typedef struct Node {
-//   binary_node node;
-//   int key;
-// } Node;
-// int cmp(const binary_node *a, const binary_node *b) {
-//   const Node *pa = CONTAINER_OF(Node, node, a);
-//   const Node *pb = CONTAINER_OF(Node, node, b);
-//   return pa->key - pb->key;
-// }
-// void print_inorder(binary_node *n) {
-//   if (!n) return;
-//   const Node *p = CONTAINER_OF(Node, node, n);
-//   print_inorder(n->child[0]);
-//   printf("%d(%c) ", p->key, n->color == RED ? 'R' : 'B');
-//   print_inorder(n->child[1]);
-// }
-// int main() {
-//   rb_tree tree;
-//   init_rb_tree(&tree);
-//   // 构造较复杂的树：插入 10, 5, 2, 7
-//   int keys[] = {10, 5, 2, 7};
-//   for (int i = 0; i < 4; i++) {
-//     Node *node = CONTAINER_OF(Node, node, MAKE_BINARY_NODE(Node, node));
-//     node->key = keys[i];
-//     rb_tree_insert(&tree, &node->node, cmp);
-//   }
-//   printf("删除前中序: ");
-//   print_inorder(tree.root);
-//   printf("\n");
-//   // 删除节点 5（有两个子节点）
-//   Node temp;
-//   temp.key = 5;
-//   binary_node *removed = rb_tree_remove(&tree, &temp.node, cmp);
-//   if (removed) FREE_BINARY_NODE(Node, node, removed);
-//   printf("删除 5 后中序: ");
-//   print_inorder(tree.root);
-//   printf("\n");
-//   return 0;
-// }
